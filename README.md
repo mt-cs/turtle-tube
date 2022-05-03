@@ -1,6 +1,6 @@
 <h1 align="center" style="display: block; font-size: 2.5em; font-weight: bold; margin-block-start: 1em; margin-block-end: 1em;">
   <br><br><strong>TURTLE TUBE</strong>
-  Fault-Tolerant Leader-based Publish/Subscribe Replication System
+  <h3>Fault-Tolerant Leader-based Publish/Subscribe Replication System</h3>
 </h1>
 
 
@@ -37,13 +37,6 @@ For the final project, I would like to implement a set of the additional feature
 * Dynamically add new instances of the Broker during program execution
 * A pull-based Consumer API similar to the original Kafka design.
 
-The TURTLE TUBE engine guaranties that:
-* The crash-stop failure of one application does not cause the crash of the system.
-* The consumer are automatically notified about available leader status.
-* All followers will catch up with replication during the join procedure
-* Strong consistency, a consumer must receive all messages in order.
-* Work over the Lossy connection.
-
 ---
 
 ## Proposed Features [![](https://user-images.githubusercontent.com/60201466/166403770-b5813248-17d5-4b23-acfe-cf60936d539f.svg)](#proposed-features)
@@ -68,5 +61,16 @@ TURTLE TUBE milestones:
 5. **May 17** - **Partitioning** This will be a tough one especially with replication.
 
 ## Deliverables [![](https://user-images.githubusercontent.com/60201466/166403770-b5813248-17d5-4b23-acfe-cf60936d539f.svg)](#deliverables)
+
+The TURTLE TUBE engine guaranties that:
+* The crash-stop failure of one application does not cause the crash of the system.
+* The consumer are automatically notified about available leader status.
+* All followers will catch up with replication during the join procedure.
+* Strong consistency, a consumer must receive all messages in order.
+* Work over the Lossy connection.
+* Options for pull-based and push-based consumers.
+* Consumers can connect to followers and not just leaders.
+* Persistent storage and send message log by offset
+* Partitioning of brokers and still maintain a consistent replication --> need suggestions.
 
 <!-- markdownlint-enable -->
