@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+/* from project directory compile this as follows:
+ * protoc --java_out=src/main/java/ protos/membership.proto
+ */
+
+option java_package = "model";
+option java_outer_classname = "Membership";
+
+message MemberInfo {
+  string host = 1;
+  int32 port = 2;
+  int32 id = 3;
+  bool isLeader = 4;
+  string state = 5;
+  string leaderHost = 6;
+  int32 leaderPort = 7;
+  bool isAlive = 8;
+  srcType type = 9;
+  map<int32, BrokerInfo> membershipTable = 10;
+  int32 version = 11;
+
+  enum srcType {
+    PRODUCER = 0;
+    BROKER = 1;
+    CONSUMER = 2;
+    LOADBALANCER = 3;
+  }
+}
+
+message BrokerInfo {
+  string host = 1;
+  int32 port = 2;
+  int32 leaderPort = 3;
+  int32 id = 4;
+  int32 version = 5;
+  bool isAlive = 6;
+  bool isLeader = 7;
+}
