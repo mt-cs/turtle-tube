@@ -1,8 +1,8 @@
-//import controllers.applicationframework.replicationapp.ReplicationApp;
-//import model.config.ReplicationConfig;
-//import util.Constant;
-//import util.LoggerSetup;
-//import util.ReplicationAppUtils;
+import controllers.applicationframework.replicationapp.ReplicationApp;
+import model.config.ReplicationConfig;
+import util.Constant;
+import util.LoggerSetup;
+import util.ReplicationAppUtils;
 
 
 /**
@@ -18,13 +18,13 @@ public class ReplicationDriver {
    *
    * @param args arguments
    */
-//  public static void main(String[] args) {
-//    LoggerSetup.setup(args[Constant.CONFIG_LENGTH - 1]);
-//
-//    ReplicationConfig config = ReplicationAppUtils.runConfig(args);
-//    ReplicationApp applicationHandler
-//        = new ReplicationApp(ReplicationAppUtils.getType(), config);
-//
-//    applicationHandler.runApplication();
-//  }
+  public static void main(String[] args) {
+    LoggerSetup.setup(args[Constant.CONFIG_LENGTH - 1]);
+
+    ReplicationConfig config = ReplicationAppUtils.runConfig(args);
+    ReplicationApp applicationHandler
+        = new ReplicationApp(ReplicationAppUtils.getType(), config);
+
+    applicationHandler.runApplication();
+  }
 }
