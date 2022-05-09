@@ -30,17 +30,16 @@ public class FaultInjectorFactory {
     FaultInjector faultInjector;
     if (chaosId == 0) {
       faultInjector = new DefaultInjector();
-      LOGGER.info("Factory created Default injector.");
+      LOGGER.info("Factory created Default Injector.");
     } else if (chaosId == 1) {
-      faultInjector = new LossInjector(Utils.getLossyParams().getLossRate());
+      faultInjector = new LossInjector(Constant.LOSS_RT);
       LOGGER.info("Factory created Loss Fault Injector.");
     } else if (chaosId == 2) {
       faultInjector = new DelayInjector(Constant.DELAY);
-      LOGGER.info("Factory created Delay Fault injector.");
+      LOGGER.info("Factory created Delay Fault Injector.");
     } else if (chaosId == 3) {
-      faultInjector = new FaultyInjector(Utils.getLossyParams().getDelay(),
-          Utils.getLossyParams().getLossRate());
-      LOGGER.info("Factory created Faulty injector.");
+      faultInjector = new FaultyInjector(Constant.DELAY, Constant.LOSS_RT);
+      LOGGER.info("Factory created Faulty Injector.");
     } else {
       System.out.println("Unknown injector type. Implement default injector");
       faultInjector = new DefaultInjector();

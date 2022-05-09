@@ -108,9 +108,15 @@ public class Utils {
     return brokerLocation.split(":");
   }
 
+  /**
+   * Get config object
+   *
+   * @return config
+   */
   public static Config getConfig() {
     return config;
   }
+
 
   /**
    * This function reads configuration file from the provided path.

@@ -20,6 +20,7 @@ public class Constant {
   public static final int SECOND = 1000000;
   public static final int RT = 3000;
   public static final int LB_PORT = 1061;
+  public static final double LOSS_RT = 0.2;
 
 
   public static final String TYPE_FLAG = "-type";
