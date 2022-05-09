@@ -1,0 +1,1 @@
+{"type": "consumer", "id": "consumer1", "kind": "pull", "port": "1052", "host": "localhost", "topic": "image", "key": "", "startingPosition": "1", "numBrokers": "1", "numPartitions": "0"}

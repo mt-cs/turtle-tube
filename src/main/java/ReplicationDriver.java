@@ -1,4 +1,4 @@
-import controllers.applicationframework.replicationapp.ReplicationApp;
+import controllers.applicationframework.ReplicationApp;
 import model.config.ReplicationConfig;
 import util.Constant;
 import util.LoggerSetup;

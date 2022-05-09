@@ -1,0 +1,1 @@
+{"type": "broker", "id": "broker1", "kind": "pull", "port": "1031", "host": "localhost", "topic": "", "key": "", "startingPosition": "0", "numBrokers": "1", "numPartitions": "0"}
