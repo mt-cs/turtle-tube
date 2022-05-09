@@ -5,7 +5,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -117,23 +116,4 @@ public class Utils {
     return config;
   }
 
-
-  /**
-   * This function reads configuration file from the provided path.
-   *
-   * @param path input path
-   * @return String
-   */
-  public static String readFile(Path path) {
-    StringBuilder sb = new StringBuilder();
-    try (BufferedReader in = Files.newBufferedReader(path)){
-      String line;
-      while((line = in.readLine()) != null) {
-        sb.append(line);
-      }
-    } catch (IOException ioe) {
-      LOGGER.warning("Check provided file, IOException occurred: " +  ioe);
-    }
-    return sb.toString();
-  }
 }

@@ -89,4 +89,13 @@ public class ReplicationAppUtils {
     return config;
   }
 
+  /**
+   * Get log File;
+   *
+   * @return logFile
+   */
+  public static String getOffsetFile() {
+    return cmdLineParser.getOffsetFile();
+  }
+
 }

@@ -36,6 +36,16 @@ public class ReplicationCmdLineParser {
   }
 
   /**
+   * Get log File;
+   *
+   * @return logFile
+   */
+  public String getOffsetFile() {
+    String[] logArr = logFile.split(".");
+    return logArr[1] + "_offset.log";
+  }
+
+  /**
    * Call parseCmdLineArgs private method
    *
    * @param args command line args

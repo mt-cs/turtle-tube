@@ -21,7 +21,7 @@ public class Constant {
   public static final int RT = 3000;
   public static final int LB_PORT = 1061;
   public static final double LOSS_RT = 0.2;
-
+  public static int MAX_BYTES = 30000;
 
   public static final String TYPE_FLAG = "-type";
   public static final String LOG_FLAG = "-log";

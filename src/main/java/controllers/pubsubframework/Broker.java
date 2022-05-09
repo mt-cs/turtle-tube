@@ -1,5 +1,6 @@
 package controllers.pubsubframework;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import controllers.electionmodule.BullyElectionManager;
 import controllers.heartbeatmodule.HeartBeatScheduler;
@@ -10,12 +11,15 @@ import controllers.messagingframework.Listener;
 import controllers.faultinjector.FaultInjectorFactory;
 import controllers.replicationmodule.ReplicationHandler;
 import interfaces.FaultInjector;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
@@ -24,6 +28,7 @@ import model.Membership.MemberInfo;
 import model.MsgInfo;
 import model.MsgInfo.Message;
 import util.Constant;
+import util.ReplicationAppUtils;
 
 /**
  * Accept an unlimited number of connection requests
@@ -45,7 +50,9 @@ public class Broker {
   private BullyElectionManager bullyElection;
   private ReplicationHandler replicationHandler;
   private FaultInjector faultInjector;
+  private final List<Integer> offsetIndex;
   private final ConcurrentHashMap<String, List<Message>> topicMap;
+  private final ConcurrentHashMap<String, ConcurrentLinkedQueue<Message>> topicQueueMap;
   private boolean isRunning = true;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
@@ -59,6 +66,10 @@ public class Broker {
     this.topicMap = new ConcurrentHashMap<>();
     this.threadPool
         = Executors.newFixedThreadPool(Constant.NUM_THREADS);
+
+
+    this.offsetIndex = Collections.synchronizedList(new ArrayList<>());
+    this.topicQueueMap = new ConcurrentHashMap<>();
   }
 
   /**
@@ -79,6 +90,10 @@ public class Broker {
     this.brokerId = brokerId;
     this.isLeader = isLeader;
     this.topicMap = new ConcurrentHashMap<>();
+
+    this.offsetIndex = Collections.synchronizedList(new ArrayList<>());
+    this.topicQueueMap = new ConcurrentHashMap<>();
+
     this.threadPool = Executors.newFixedThreadPool(Constant.NUM_THREADS);
     this.faultInjector = new FaultInjectorFactory(faultType).getChaos();
     this.membershipTable = new MembershipTable();
@@ -287,6 +302,47 @@ public class Broker {
     if (isAckSent) {
       LOGGER.info("Broker received msgId: " + msgFromProducer.getMsgId());
     }
+  }
+
+  /**
+   * Send message to consumer using offset
+   *
+   * @param startingOffset starting offset
+   * @param msg protobuf message
+   */
+  public void sendToConsumerFromOffset(ConnectionHandler connection, int startingOffset, Message msg) {
+    byte[] data = getBytes(startingOffset);
+    MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
+        .setTypeValue(1)
+        .setTopic(msg.getTopic())
+        .setData(ByteString.copyFrom(data))
+        .build();
+    if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
+      return;
+    }
+    LOGGER.info("Sending data to consumer: " + ByteString.copyFrom(data));
+    connection.send(msgInfo.toByteArray());
+    sendClose(connection);
+  }
+
+  /**
+   * Get message byte array from starting offset
+   *
+   * @param startingOffset starting offset
+   * @return byte[] messages for consumer
+   */
+  public byte[] getBytes(int startingOffset) {
+    byte[] data = new byte[Constant.MAX_BYTES];
+    try (InputStream inputStream = new FileInputStream(ReplicationAppUtils.getOffsetFile())) {
+      if (!offsetIndex.contains(startingOffset)) {
+        startingOffset = PubSubUtils.getClosestOffset(offsetIndex, startingOffset);
+      }
+      inputStream.skip(startingOffset);
+      inputStream.read(data);
+    } catch (IOException e) {
+      LOGGER.warning("Error in reading from persistent log: " + e.getMessage());
+    }
+    return data;
   }
 
   /**
