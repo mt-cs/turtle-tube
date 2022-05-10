@@ -208,7 +208,7 @@ public class Broker {
             // OFFSET
             LOGGER.info("Received request from customer for message topic/offset: "
                 + msg.getTopic() + "/ " + msg.getStartingPosition());
-            sendToConsumerFromOffset(connection, msg.getStartingPosition(), msg);
+            sendToConsumerFromOffset(connection, msg);
           } else if (msg.getTypeValue() == 3) {
             LOGGER.info("Received ACK from: " + msg.getSrcId() + " for msgId: " + msg.getMsgId());
           } else if (msg.getTypeValue() == 4) {
@@ -383,11 +383,10 @@ public class Broker {
   /**
    * Send message to consumer using offset
    *
-   * @param startingOffset starting offset
    * @param msg protobuf message
    */
-  public void sendToConsumerFromOffset(ConnectionHandler connection, int startingOffset, Message msg) {
-    byte[] data = getBytes(startingOffset);
+  public void sendToConsumerFromOffset(ConnectionHandler connection, Message msg) {
+    byte[] data = getBytes(msg.getStartingPosition());
     MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
         .setTypeValue(1)
         .setTopic(msg.getTopic())
@@ -408,11 +407,16 @@ public class Broker {
    * @return byte[] messages for consumer
    */
   public byte[] getBytes(int startingOffset) {
-    byte[] data = new byte[Constant.MAX_BYTES];
+//    byte[] data = new byte[Constant.MAX_BYTES];
+    int nextIdx, byteSize;
+    byte[] data = new byte[0];
     try (InputStream inputStream = new FileInputStream(ReplicationAppUtils.getOffsetFile())) {
       if (!offsetIndex.contains(startingOffset)) {
         startingOffset = PubSubUtils.getClosestOffset(offsetIndex, startingOffset);
       }
+      nextIdx = offsetIndex.indexOf(startingOffset) + 1;
+      byteSize = offsetIndex.get(nextIdx) - startingOffset;
+      data = new byte[byteSize];
       inputStream.skip(startingOffset);
       inputStream.read(data);
     } catch (IOException e) {
