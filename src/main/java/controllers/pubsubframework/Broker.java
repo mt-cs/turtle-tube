@@ -10,10 +10,14 @@ import controllers.messagingframework.ConnectionHandler;
 import controllers.messagingframework.Listener;
 import controllers.faultinjector.FaultInjectorFactory;
 import controllers.replicationmodule.ReplicationHandler;
+import controllers.replicationmodule.ReplicationUtils;
 import interfaces.FaultInjector;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -40,10 +44,13 @@ public class Broker {
   private final ExecutorService threadPool;
   private String host;
   private final int port;
+  private int firstReplicateId = 0;
   private int leaderBasedPort;
   private int brokerId;
-  private int version = 1;
+  private int version;
+  private int offsetCount;
   private volatile boolean isLeader;
+  private volatile boolean isFirst = true;
   private ConnectionHandler leaderConnection;
   private MembershipTable membershipTable;
   private HeartBeatScheduler heartBeatScheduler;
@@ -51,7 +58,8 @@ public class Broker {
   private ReplicationHandler replicationHandler;
   private FaultInjector faultInjector;
   private final List<Integer> offsetIndex;
-  private final ConcurrentHashMap<String, List<Message>> topicMap;
+  private ConcurrentHashMap<String, List<Message>> topicMap;
+  private final ConcurrentHashMap<String, List<Message>> topicMapCatchUp;
   private final ConcurrentHashMap<String, ConcurrentLinkedQueue<Message>> topicQueueMap;
   private boolean isRunning = true;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
@@ -64,10 +72,12 @@ public class Broker {
   public Broker(int port) {
     this.port = port;
     this.topicMap = new ConcurrentHashMap<>();
+    this.topicMapCatchUp = new ConcurrentHashMap<>();
     this.threadPool
         = Executors.newFixedThreadPool(Constant.NUM_THREADS);
 
-
+    this.version = 1;
+    this.offsetCount = 0;
     this.offsetIndex = Collections.synchronizedList(new ArrayList<>());
     this.topicQueueMap = new ConcurrentHashMap<>();
   }
@@ -89,8 +99,12 @@ public class Broker {
     this.leaderBasedPort = leaderBasedPort;
     this.brokerId = brokerId;
     this.isLeader = isLeader;
+    this.version = 1;
     this.topicMap = new ConcurrentHashMap<>();
 
+    this.topicMapCatchUp = new ConcurrentHashMap<>();
+
+    this.offsetCount = 0;
     this.offsetIndex = Collections.synchronizedList(new ArrayList<>());
     this.topicQueueMap = new ConcurrentHashMap<>();
 
@@ -172,15 +186,39 @@ public class Broker {
               receiveFromProducer(connection, msg);
             }
           } else if (msg.getTypeValue() == 1) {
-            LOGGER.info("Received msgInfo replicate from broker: " + msg.getSrcId());
-            replicationHandler.storeMsgToTopicMap(msg, topicMap);
+//            if (!msg.getIsSnapshot()) {
+//              LOGGER.info(msg.getMsgId() + " | Received msgInfo replicate from broker: " + msg.getSrcId());
+//              if (isFirst) {
+//                firstReplicateId = msg.getMsgId();
+//                LOGGER.info("First replicate: " +  firstReplicateId);
+//                isFirst = false;
+//              }
+//              replicationHandler.storeMsgToTopicMap(msg, topicMap);
+//            } else {
+//              if (msg.getMsgId() == firstReplicateId - 1) {
+//                LOGGER.info("Merging topic map catch up...");
+//                topicMap = ReplicationUtils.mergeTopicMap(topicMap, topicMapCatchUp);
+//              } else if (msg.getMsgId() >= firstReplicateId) {
+//                continue;
+//              }
+//              LOGGER.info(msg.getMsgId() + " | Received msgInfo snapshot from broker: " + msg.getSrcId());
+//              replicationHandler.storeMsgToTopicMap(msg, topicMapCatchUp);
+//            }
+
+            replicationHandler.storeMsgToTopicMap(msg, topicMapCatchUp);
+
             replicationHandler.sendAck(connection, PubSubUtils.getBrokerLocation(host, port),
                 msg.getOffset(), msg.getSrcId(), msg.getMsgId());
             membershipTable.updateBrokerVersion(brokerId, version++);
           } else if (msg.getTypeValue() == 2) {
-            LOGGER.info("Received request from customer for message topic/starting position: "
+//            LOGGER.info("Received request from customer for message topic/starting position: "
+//                + msg.getTopic() + "/ " + msg.getStartingPosition());
+//            sendToConsumer(msg.getStartingPosition(), msg.getTopic(), connection);
+
+            // OFFSET
+            LOGGER.info("Received request from customer for message topic/offset: "
                 + msg.getTopic() + "/ " + msg.getStartingPosition());
-            sendToConsumer(msg.getStartingPosition(), msg.getTopic(), connection);
+            sendToConsumerFromOffset(connection, msg.getStartingPosition(), msg);
           } else if (msg.getTypeValue() == 3) {
             LOGGER.info("Received ACK from: " + msg.getSrcId() + " for msgId: " + msg.getMsgId());
           } else if (msg.getTypeValue() == 4) {
@@ -210,11 +248,11 @@ public class Broker {
 
           if (memberInfo.getState().equals(Constant.ALIVE)) {
             updateMembershipTable(memberInfo.getMembershipTableMap());
-            LOGGER.info(membershipTable.toString());
+//            LOGGER.info(membershipTable.toString());
             heartBeatScheduler.handleHeartBeatRequest(memberInfo.getId());
           } else if (memberInfo.getState().equals(Constant.CONNECT))  {
             MembershipUtils.addToMembershipTable(connection, memberInfo, membershipTable);
-            LOGGER.info(membershipTable.toString());
+//            LOGGER.info(membershipTable.toString());
           } else if (memberInfo.getState().equals(Constant.ELECTION)) {
             bullyElection.handleElectionRequest(connection, memberInfo.getId());
           } else if (memberInfo.getState().equals(Constant.CANDIDATE)) {
@@ -222,8 +260,8 @@ public class Broker {
           } else if (memberInfo.getState().equals(Constant.VICTORY)) {
             bullyElection.handleVictoryRequest(memberInfo.getId());
           }
-          LOGGER.info("Received " + memberInfo.getState()
-              + " from broker: " + memberInfo.getId() + " | " + brokerLocation);
+//          LOGGER.info("Received " + memberInfo.getState()
+//              + " from broker: " + memberInfo.getId() + " | " + brokerLocation);
 
         } catch (InvalidProtocolBufferException e) {
           e.printStackTrace();
@@ -284,14 +322,32 @@ public class Broker {
   public void receiveFromProducer(ConnectionHandler connection, Message msgFromProducer) {
 
     if (!topicMap.containsKey(msgFromProducer.getTopic())) {
+      // OFFSET
+      ConcurrentLinkedQueue<MsgInfo.Message> msgLinkedQueue = new ConcurrentLinkedQueue<>();
+      msgLinkedQueue.add(msgFromProducer);
+
       List <MsgInfo.Message> msgList = Collections.synchronizedList(new ArrayList<>());
       msgList.add(msgFromProducer);
       LOGGER.info(PubSubUtils.getMsgTopicInfo(msgFromProducer));
       topicMap.put(msgFromProducer.getTopic(), msgList);
       LOGGER.info("New Topic List: " + msgFromProducer.getTopic() + " added to broker's topicMap");
+
+      // OFFSET
+      topicQueueMap.put(msgFromProducer.getTopic(), msgLinkedQueue);
     } else {
+      // OFFSET
+      topicQueueMap.get(msgFromProducer.getTopic()).add(msgFromProducer);
+
       topicMap.get(msgFromProducer.getTopic()).add(msgFromProducer);
       LOGGER.info(PubSubUtils.getMsgTopicInfo(msgFromProducer));
+    }
+
+    offsetIndex.add(offsetCount);
+    LOGGER.info("Offset count: " + offsetCount);
+    offsetCount += msgFromProducer.getOffset();
+
+    if (topicQueueMap.get(msgFromProducer.getTopic()).size() > Constant.MAX_OFFSET_SIZE) {
+      flushToDisk(topicQueueMap.get(msgFromProducer.getTopic()));
     }
 
     boolean isAckSent = false;
@@ -303,6 +359,36 @@ public class Broker {
       LOGGER.info("Broker received msgId: " + msgFromProducer.getMsgId());
     }
   }
+
+  /**
+   * Flush message to disk
+   *
+   * @param topicList list of topics
+   */
+  public void flushToDisk(ConcurrentLinkedQueue<Message> topicList) {
+    LOGGER.info("Flushing to disk...");
+    Path filePathSave = Path.of(ReplicationAppUtils.getOffsetFile());
+    for (Message msg : topicList) {
+      byte[] msgArr = msg.getData().toByteArray();
+      if (!Files.exists(filePathSave)) {
+        try {
+          Files.write(filePathSave, msgArr);
+          topicList.remove(msg);
+        } catch (IOException e) {
+          LOGGER.warning("Error while flushing to disk: " + e.getMessage());
+        }
+      }
+      try {
+        Files.write(filePathSave, msgArr, StandardOpenOption.APPEND);
+        topicList.remove(msg);
+      } catch (IOException e) {
+        LOGGER.warning("Error while flushing to disk: " + e.getMessage());
+      }
+    }
+  }
+  // offset 10
+  // offset 19
+  //
 
   /**
    * Send message to consumer using offset
@@ -344,6 +430,14 @@ public class Broker {
     }
     return data;
   }
+
+  // PUSH BASE
+  // consumer connect I am a push based subscribe to this topic
+  // while loop trying to receive msg
+  // broker get topic request
+  // get message
+  // save to file
+  // send to consumer
 
   /**
    * Sending message to customer

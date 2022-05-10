@@ -14,6 +14,8 @@ public class Constant {
   public static final int NUM_QUEUE = 1000;
   public static final int POLL_FREQ = 3000;
   public static final int MAX_PULL = 100;
+  public static final int MAX_BYTES = 30000;
+  public static final int MAX_OFFSET_SIZE = 500;
   public static final int TIMEOUT = 10000;
   public static final int DELAY = 7000;
   public static final int MAX_BOUND = 3;
@@ -21,7 +23,7 @@ public class Constant {
   public static final int RT = 3000;
   public static final int LB_PORT = 1061;
   public static final double LOSS_RT = 0.2;
-  public static int MAX_BYTES = 30000;
+
 
   public static final String TYPE_FLAG = "-type";
   public static final String LOG_FLAG = "-log";

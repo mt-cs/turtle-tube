@@ -66,13 +66,13 @@ public class HeartBeatScheduler {
    */
   public void sendHeartBeat() {
     for (var member : membershipTable) {
-      LOGGER.info(membershipTable.toString());
+//      LOGGER.info(membershipTable.toString());
       if (member.getValue().getBrokerId() == brokerId) {
         continue;
       }
-      LOGGER.info("Sending heartbeat to broker: "
-          + member.getValue().getBrokerId() + " | "
-          + member.getValue().getLeaderBasedLocation());
+//      LOGGER.info("Sending heartbeat to broker: "
+//          + member.getValue().getBrokerId() + " | "
+//          + member.getValue().getLeaderBasedLocation());
 
       ConnectionHandler connection = member.getValue().getLeaderBasedConnection();
       Membership.MemberInfo memberInfo = MemberInfo.newBuilder()
@@ -94,7 +94,7 @@ public class HeartBeatScheduler {
    */
   public synchronized void handleHeartBeatRequest(int id) {
     heartbeatInfoMap.put(id, new HeartBeatInfo(System.nanoTime(), 0));
-    LOGGER.info("Receive heartbeat from broker " + id);
+//    LOGGER.info("Receive heartbeat from broker " + id);
   }
 
   /**
@@ -108,7 +108,7 @@ public class HeartBeatScheduler {
   }
 
   /**
-   * Wrapper classe
+   * Wrapper class
    *
    * @param heartBeatInterval interval of heartbeat in ms
    * @return heartbeat timeout in second

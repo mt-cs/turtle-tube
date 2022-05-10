@@ -6,8 +6,8 @@ package model;
  * @author marisatania
  */
 public class LogStream {
-  private String topic;
-  private String key;
+  private final String topic;
+  private final String key;
   byte[] data;
 
   /**

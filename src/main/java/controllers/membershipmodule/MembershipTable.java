@@ -8,12 +8,20 @@ import java.util.logging.Logger;
 import model.MemberAccount;
 import model.Membership;
 
+/**
+ * Class for membership table instance
+ *
+ * @author marisatania
+ */
 public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccount>> {
   private final ConcurrentMap<Integer, MemberAccount> membershipMap;
   private final ConcurrentMap<Integer, Membership.BrokerInfo> protoMap;
   private volatile boolean isFailure;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
+  /**
+   * Constructor
+   */
   public MembershipTable() {
     this.membershipMap = new ConcurrentHashMap<>();
     this.protoMap = new ConcurrentHashMap<>();

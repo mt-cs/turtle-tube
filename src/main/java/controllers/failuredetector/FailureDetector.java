@@ -65,7 +65,7 @@ public class FailureDetector {
         }
         break;
       }
-      LOGGER.info("heartbeat checked from: " + brokerId);
+//      LOGGER.info("heartbeat checked from: " + brokerId);
       membershipTable.setFailure(false);
     }
   }

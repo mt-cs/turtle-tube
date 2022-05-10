@@ -76,6 +76,12 @@ public final class MsgInfo {
      * @return The msgId.
      */
     int getMsgId();
+
+    /**
+     * <code>bool isSnapshot = 9;</code>
+     * @return The isSnapshot.
+     */
+    boolean getIsSnapshot();
   }
   /**
    * Protobuf type {@code Message}
@@ -162,6 +168,11 @@ public final class MsgInfo {
             case 64: {
 
               msgId_ = input.readInt32();
+              break;
+            }
+            case 72: {
+
+              isSnapshot_ = input.readBool();
               break;
             }
             default: {
@@ -470,6 +481,17 @@ public final class MsgInfo {
       return msgId_;
     }
 
+    public static final int ISSNAPSHOT_FIELD_NUMBER = 9;
+    private boolean isSnapshot_;
+    /**
+     * <code>bool isSnapshot = 9;</code>
+     * @return The isSnapshot.
+     */
+    @java.lang.Override
+    public boolean getIsSnapshot() {
+      return isSnapshot_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -504,6 +526,9 @@ public final class MsgInfo {
       }
       if (msgId_ != 0) {
         output.writeInt32(8, msgId_);
+      }
+      if (isSnapshot_ != false) {
+        output.writeBool(9, isSnapshot_);
       }
       unknownFields.writeTo(output);
     }
@@ -540,6 +565,10 @@ public final class MsgInfo {
         size += com.google.protobuf.CodedOutputStream
           .computeInt32Size(8, msgId_);
       }
+      if (isSnapshot_ != false) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeBoolSize(9, isSnapshot_);
+      }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
       return size;
@@ -568,6 +597,8 @@ public final class MsgInfo {
           != other.getStartingPosition()) return false;
       if (getMsgId()
           != other.getMsgId()) return false;
+      if (getIsSnapshot()
+          != other.getIsSnapshot()) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -593,6 +624,9 @@ public final class MsgInfo {
       hash = (53 * hash) + getStartingPosition();
       hash = (37 * hash) + MSGID_FIELD_NUMBER;
       hash = (53 * hash) + getMsgId();
+      hash = (37 * hash) + ISSNAPSHOT_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getIsSnapshot());
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
       return hash;
@@ -740,6 +774,8 @@ public final class MsgInfo {
 
         msgId_ = 0;
 
+        isSnapshot_ = false;
+
         return this;
       }
 
@@ -773,6 +809,7 @@ public final class MsgInfo {
         result.offset_ = offset_;
         result.startingPosition_ = startingPosition_;
         result.msgId_ = msgId_;
+        result.isSnapshot_ = isSnapshot_;
         onBuilt();
         return result;
       }
@@ -843,6 +880,9 @@ public final class MsgInfo {
         }
         if (other.getMsgId() != 0) {
           setMsgId(other.getMsgId());
+        }
+        if (other.getIsSnapshot() != false) {
+          setIsSnapshot(other.getIsSnapshot());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -1205,6 +1245,37 @@ public final class MsgInfo {
         onChanged();
         return this;
       }
+
+      private boolean isSnapshot_ ;
+      /**
+       * <code>bool isSnapshot = 9;</code>
+       * @return The isSnapshot.
+       */
+      @java.lang.Override
+      public boolean getIsSnapshot() {
+        return isSnapshot_;
+      }
+      /**
+       * <code>bool isSnapshot = 9;</code>
+       * @param value The isSnapshot to set.
+       * @return This builder for chaining.
+       */
+      public Builder setIsSnapshot(boolean value) {
+        
+        isSnapshot_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>bool isSnapshot = 9;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearIsSnapshot() {
+        
+        isSnapshot_ = false;
+        onChanged();
+        return this;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -1272,13 +1343,14 @@ public final class MsgInfo {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\020protos/msg.proto\"\330\001\n\007Message\022\036\n\004type\030\001" +
+      "\n\020protos/msg.proto\"\354\001\n\007Message\022\036\n\004type\030\001" +
       " \001(\0162\020.Message.srcType\022\r\n\005srcId\030\002 \001(\t\022\r\n" +
       "\005topic\030\003 \001(\t\022\014\n\004data\030\004 \001(\014\022\016\n\006offset\030\005 \001" +
       "(\005\022\030\n\020startingPosition\030\006 \001(\005\022\r\n\005msgId\030\010 " +
-      "\001(\005\"H\n\007srcType\022\014\n\010PRODUCER\020\000\022\n\n\006BROKER\020\001" +
-      "\022\014\n\010CONSUMER\020\002\022\007\n\003ACK\020\003\022\014\n\010SNAPSHOT\020\004B\020\n" +
-      "\005modelB\007MsgInfob\006proto3"
+      "\001(\005\022\022\n\nisSnapshot\030\t \001(\010\"H\n\007srcType\022\014\n\010PR" +
+      "ODUCER\020\000\022\n\n\006BROKER\020\001\022\014\n\010CONSUMER\020\002\022\007\n\003AC" +
+      "K\020\003\022\014\n\010SNAPSHOT\020\004B\020\n\005modelB\007MsgInfob\006pro" +
+      "to3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -1289,7 +1361,7 @@ public final class MsgInfo {
     internal_static_Message_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_Message_descriptor,
-        new java.lang.String[] { "Type", "SrcId", "Topic", "Data", "Offset", "StartingPosition", "MsgId", });
+        new java.lang.String[] { "Type", "SrcId", "Topic", "Data", "Offset", "StartingPosition", "MsgId", "IsSnapshot", });
   }
 
   // @@protoc_insertion_point(outer_class_scope)

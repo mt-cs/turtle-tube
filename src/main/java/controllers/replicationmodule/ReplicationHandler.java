@@ -9,8 +9,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import model.MsgInfo;
 import model.MsgInfo.Message;
 import util.Constant;
@@ -79,6 +81,7 @@ public class ReplicationHandler {
         .setData(msgFromProducer.getData())
         .setMsgId(msgFromProducer.getMsgId())
         .setTypeValue(1)
+        .setIsSnapshot(false)
         .build();
 
     boolean isSent = connectionToPeer.send(msgInfoReplicate.toByteArray());
@@ -145,12 +148,15 @@ public class ReplicationHandler {
    * @param connection Connection handler
    */
   public synchronized void sendTopicMap(ConnectionHandler connection) {
+    Map<String, List<Message>> currentTopicMap = topicMap.entrySet().stream()
+        .collect(Collectors.toMap(Entry::getKey, e -> List.copyOf(e.getValue())));
+
     LOGGER.info("Sending snapshot of topicMap...");
     boolean isSent;
 
-    for (Map.Entry<String, List<Message>> topic : topicMap.entrySet()) {
+    for (Map.Entry<String, List<Message>> topic : currentTopicMap.entrySet()) {
       LOGGER.info("Sending topic list: " + topic.getKey());
-      List<MsgInfo.Message> msgList = topicMap.get(topic.getKey());
+      List<MsgInfo.Message> msgList = currentTopicMap.get(topic.getKey());
       for (MsgInfo.Message msg : msgList) {
         MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
             .setTypeValue(1)
@@ -159,6 +165,7 @@ public class ReplicationHandler {
             .setSrcId(PubSubUtils.getBrokerLocation(host, port))
             .setData(msg.getData())
             .setMsgId(msg.getMsgId())
+            .setIsSnapshot(true)
             .build();
 
         isSent = connection.send(msgInfo.toByteArray());

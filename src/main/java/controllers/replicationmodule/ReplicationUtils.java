@@ -3,8 +3,15 @@ package controllers.replicationmodule;
 import controllers.faultinjector.FaultInjectorFactory;
 import controllers.messagingframework.ConnectionHandler;
 import controllers.pubsubframework.PubSubUtils;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import model.Membership.MemberInfo;
+import model.MsgInfo;
+import model.MsgInfo.Message;
 
 /**
  * Helper util for replication
@@ -36,6 +43,24 @@ public class ReplicationUtils {
         .setTypeValue(0)
         .build();
     loadBalancerConnection.send(addressRequest.toByteArray());
+  }
+
+  public static synchronized ConcurrentHashMap<String, List<Message>> mergeTopicMap(
+      ConcurrentHashMap<String, List<Message>> topicMapOri,
+      ConcurrentHashMap<String, List<Message>> topicMapCatchUp) {
+
+    for (Map.Entry<String, List<Message>> topic : topicMapOri.entrySet()) {
+      List<MsgInfo.Message> msgList = topicMapOri.get(topic.getKey());
+      if (topicMapCatchUp.containsKey(topic.getKey())) {
+        for (MsgInfo.Message msg : msgList) {
+          topicMapCatchUp.get(topic.getKey()).add(msg);
+          LOGGER.warning("CATCH UP:" + msg.getMsgId());
+        }
+      } else {
+        topicMapCatchUp.putIfAbsent(topic.getKey(), msgList);
+      }
+    }
+    return topicMapCatchUp;
   }
 
 }
