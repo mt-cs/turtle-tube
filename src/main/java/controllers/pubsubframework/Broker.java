@@ -44,13 +44,11 @@ public class Broker {
   private final ExecutorService threadPool;
   private String host;
   private final int port;
-  private int firstReplicateId = 0;
   private int leaderBasedPort;
   private int brokerId;
   private int version;
   private int offsetCount;
   private volatile boolean isLeader;
-  private volatile boolean isFirst = true;
   private ConnectionHandler leaderConnection;
   private MembershipTable membershipTable;
   private HeartBeatScheduler heartBeatScheduler;
@@ -186,27 +184,18 @@ public class Broker {
               receiveFromProducer(connection, msg);
             }
           } else if (msg.getTypeValue() == 1) {
-//            if (!msg.getIsSnapshot()) {
-//              LOGGER.info(msg.getMsgId() + " | Received msgInfo replicate from broker: " + msg.getSrcId());
-//              if (isFirst) {
-//                firstReplicateId = msg.getMsgId();
-//                LOGGER.info("First replicate: " +  firstReplicateId);
-//                isFirst = false;
-//              }
-//              replicationHandler.storeMsgToTopicMap(msg, topicMap);
-//            } else {
-//              if (msg.getMsgId() == firstReplicateId - 1) {
-//                LOGGER.info("Merging topic map catch up...");
-//                topicMap = ReplicationUtils.mergeTopicMap(topicMap, topicMapCatchUp);
-//              } else if (msg.getMsgId() >= firstReplicateId) {
-//                continue;
-//              }
-//              LOGGER.info(msg.getMsgId() + " | Received msgInfo snapshot from broker: " + msg.getSrcId());
-//              replicationHandler.storeMsgToTopicMap(msg, topicMapCatchUp);
-//            }
-
-            replicationHandler.storeMsgToTopicMap(msg, topicMapCatchUp);
-
+            if (!msg.getIsSnapshot()) {
+              LOGGER.info(msg.getMsgId() + " | Received msgInfo replicate from broker: " + msg.getSrcId());
+              replicationHandler.storeMsgToTopicMap(msg, topicMap);
+            } else {
+              if (msg.getTopic().equals(Constant.LAST_SNAPSHOT)) {
+                LOGGER.info("Merging topic map catch up...");
+                topicMap = ReplicationUtils.mergeTopicMap(topicMap, topicMapCatchUp);
+                continue;
+              }
+              LOGGER.info(msg.getMsgId() + " | Received msgInfo snapshot from broker: " + msg.getSrcId());
+              replicationHandler.storeMsgToTopicMap(msg, topicMapCatchUp);
+            }
             replicationHandler.sendAck(connection, PubSubUtils.getBrokerLocation(host, port),
                 msg.getOffset(), msg.getSrcId(), msg.getMsgId());
             membershipTable.updateBrokerVersion(brokerId, version++);

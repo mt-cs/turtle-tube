@@ -40,6 +40,7 @@ public class Constant {
 
   public static final String CLOSE = "close";
   public static final String SNAPSHOT = "snapshot";
+  public static final String LAST_SNAPSHOT =  "last snapshot";
 
   public static final String ALIVE = "ALIVE";
   public static final String CONNECT = "CONNECT";

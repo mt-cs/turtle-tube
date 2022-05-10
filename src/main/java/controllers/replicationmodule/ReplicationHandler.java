@@ -176,6 +176,7 @@ public class ReplicationHandler {
         }
       }
     }
+    sendLastSnapshot(connection);
   }
 
   /**
@@ -236,5 +237,14 @@ public class ReplicationHandler {
         }
       }
     }
+  }
+
+  private void sendLastSnapshot(ConnectionHandler connection) {
+    Message msgInfoLast = Message.newBuilder()
+        .setTypeValue(1)
+        .setTopic(Constant.LAST_SNAPSHOT)
+        .setIsSnapshot(true)
+        .build();
+    connection.send(msgInfoLast.toByteArray());
   }
 }

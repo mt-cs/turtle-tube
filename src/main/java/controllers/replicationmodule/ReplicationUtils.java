@@ -54,10 +54,11 @@ public class ReplicationUtils {
       if (topicMapCatchUp.containsKey(topic.getKey())) {
         for (MsgInfo.Message msg : msgList) {
           topicMapCatchUp.get(topic.getKey()).add(msg);
-          LOGGER.warning("CATCH UP:" + msg.getMsgId());
+          LOGGER.info("Catch up snapshot merge:" + msg.getMsgId());
         }
       } else {
         topicMapCatchUp.putIfAbsent(topic.getKey(), msgList);
+        LOGGER.info("Catch up snapshot merge topic:" + topic.getKey());
       }
     }
     return topicMapCatchUp;
