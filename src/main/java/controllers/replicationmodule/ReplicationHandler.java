@@ -239,6 +239,11 @@ public class ReplicationHandler {
     }
   }
 
+  /**
+   * A helper class to send the last snapshot
+   *
+   * @param connection snapshot broker connection
+   */
   private void sendLastSnapshot(ConnectionHandler connection) {
     Message msgInfoLast = Message.newBuilder()
         .setTypeValue(1)

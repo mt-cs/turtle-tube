@@ -191,6 +191,7 @@ public class Broker {
               if (msg.getTopic().equals(Constant.LAST_SNAPSHOT)) {
                 LOGGER.info("Merging topic map catch up...");
                 topicMap = ReplicationUtils.mergeTopicMap(topicMap, topicMapCatchUp);
+                topicMapCatchUp.clear();
                 continue;
               }
               LOGGER.info(msg.getMsgId() + " | Received msgInfo snapshot from broker: " + msg.getSrcId());
@@ -200,9 +201,9 @@ public class Broker {
                 msg.getOffset(), msg.getSrcId(), msg.getMsgId());
             membershipTable.updateBrokerVersion(brokerId, version++);
           } else if (msg.getTypeValue() == 2) {
-//            LOGGER.info("Received request from customer for message topic/starting position: "
-//                + msg.getTopic() + "/ " + msg.getStartingPosition());
-//            sendToConsumer(msg.getStartingPosition(), msg.getTopic(), connection);
+            LOGGER.info("Received request from customer for message topic/starting position: "
+                + msg.getTopic() + "/ " + msg.getStartingPosition());
+            // sendToConsumer(msg.getStartingPosition(), msg.getTopic(), connection);
 
             // OFFSET
             LOGGER.info("Received request from customer for message topic/offset: "

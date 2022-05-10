@@ -5,10 +5,8 @@ import controllers.messagingframework.ConnectionHandler;
 import controllers.pubsubframework.PubSubUtils;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import model.Membership.MemberInfo;
 import model.MsgInfo;
 import model.MsgInfo.Message;
@@ -45,23 +43,29 @@ public class ReplicationUtils {
     loadBalancerConnection.send(addressRequest.toByteArray());
   }
 
+  /**
+   * Merge catchUp snapshot and replication topicMap
+   *
+   * @param topicMapReplication replication map
+   * @param topicMapSnapshot    snapshot map
+   * @return merger map
+   */
   public static synchronized ConcurrentHashMap<String, List<Message>> mergeTopicMap(
-      ConcurrentHashMap<String, List<Message>> topicMapOri,
-      ConcurrentHashMap<String, List<Message>> topicMapCatchUp) {
+      ConcurrentHashMap<String, List<Message>> topicMapReplication,
+      ConcurrentHashMap<String, List<Message>> topicMapSnapshot) {
 
-    for (Map.Entry<String, List<Message>> topic : topicMapOri.entrySet()) {
-      List<MsgInfo.Message> msgList = topicMapOri.get(topic.getKey());
-      if (topicMapCatchUp.containsKey(topic.getKey())) {
+    for (Map.Entry<String, List<Message>> topic : topicMapReplication.entrySet()) {
+      List<MsgInfo.Message> msgList = topicMapReplication.get(topic.getKey());
+      if (topicMapSnapshot.containsKey(topic.getKey())) {
         for (MsgInfo.Message msg : msgList) {
-          topicMapCatchUp.get(topic.getKey()).add(msg);
+          topicMapSnapshot.get(topic.getKey()).add(msg);
           LOGGER.info("Catch up snapshot merge:" + msg.getMsgId());
         }
       } else {
-        topicMapCatchUp.putIfAbsent(topic.getKey(), msgList);
+        topicMapSnapshot.putIfAbsent(topic.getKey(), msgList);
         LOGGER.info("Catch up snapshot merge topic:" + topic.getKey());
       }
     }
-    return topicMapCatchUp;
+    return topicMapSnapshot;
   }
-
 }
