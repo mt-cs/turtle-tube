@@ -64,10 +64,10 @@ public class ConsumerReplicationApp {
           try {
             Files.write(filePathSave, message, StandardOpenOption.APPEND);
             Files.writeString(filePathSave, "\n", StandardOpenOption.APPEND);
+            LOGGER.info("Writing to consumer application file...");
           } catch (IOException e) {
             e.printStackTrace();
           }
-          LOGGER.info("Writing to consumer application file...");
         }
       }
     }

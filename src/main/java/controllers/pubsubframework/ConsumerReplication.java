@@ -1,5 +1,3 @@
-
-
 package controllers.pubsubframework;
 
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -124,7 +122,7 @@ public class ConsumerReplication {
       sendRequestToBroker(topic, startingPosition);
       LOGGER.info("Fetching from broker " + leaderLocation + "...");
       if (isElecting) {
-        PubSubUtils.wait(20000);
+        PubSubUtils.wait(30000);
         leaderLocation = getLeaderAddress();
         connectToBroker();
         isElecting = false;

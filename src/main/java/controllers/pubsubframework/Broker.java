@@ -376,9 +376,6 @@ public class Broker {
       }
     }
   }
-  // offset 10
-  // offset 19
-  //
 
   /**
    * Send message to consumer using offset
@@ -386,17 +383,25 @@ public class Broker {
    * @param msg protobuf message
    */
   public void sendToConsumerFromOffset(ConnectionHandler connection, Message msg) {
-    byte[] data = getBytes(msg.getStartingPosition());
-    MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
-        .setTypeValue(1)
-        .setTopic(msg.getTopic())
-        .setData(ByteString.copyFrom(data))
-        .build();
-    if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
-      return;
+    int startingOffset = msg.getStartingPosition();
+    int countOffsetSent = 0, offset;
+    while (countOffsetSent <= Constant.MAX_BYTES) {
+      byte[] data = getBytes(startingOffset);
+      offset = data.length;
+      startingOffset += offset;
+      countOffsetSent += offset;
+      MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
+          .setTypeValue(1)
+          .setTopic(msg.getTopic())
+          .setData(ByteString.copyFrom(data))
+          .setOffset(offset)
+          .build();
+      if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
+        return;
+      }
+      LOGGER.info("Sending data to consumer: " + ByteString.copyFrom(data));
+      connection.send(msgInfo.toByteArray());
     }
-    LOGGER.info("Sending data to consumer: " + ByteString.copyFrom(data));
-    connection.send(msgInfo.toByteArray());
     sendClose(connection);
   }
 
@@ -407,7 +412,6 @@ public class Broker {
    * @return byte[] messages for consumer
    */
   public byte[] getBytes(int startingOffset) {
-//    byte[] data = new byte[Constant.MAX_BYTES];
     int nextIdx, byteSize;
     byte[] data = new byte[0];
     try (InputStream inputStream = new FileInputStream(ReplicationAppUtils.getOffsetFile())) {
