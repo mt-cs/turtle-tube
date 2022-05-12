@@ -200,8 +200,6 @@ public class ConsumerReplication {
           LOGGER.info("Received from broker message topic: "
               + msgFromBroker.getTopic() + ". Data: " + msgFromBroker.getData().toStringUtf8());
           blockingQueue.put(data);
-          LOGGER.info("Data added to blocking queue");
-
 
           if (model.equals(Constant.PUSH)) {
             flushToFile(data, LOGGER);

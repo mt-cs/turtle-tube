@@ -51,6 +51,7 @@ public class Broker {
   private int startingPosRequest;
   private String topicRequest;
   private ConnectionHandler consumerConnection;
+  private volatile boolean isFlushed;
 
   private volatile boolean isLeader;
   private volatile boolean isSyncUp;
@@ -243,10 +244,9 @@ public class Broker {
             topicRequest = msg.getTopic();
             consumerConnection = connection;
 
-
             LOGGER.info("Received request from Push-Based customer for message topic/offset: "
                 + msg.getTopic() + "/ " + msg.getStartingPosition());
-//            sendToPushBasedConsumer(msg.getStartingPosition(), msg.getTopic(), connection);
+            sendToPushBasedConsumer(msg.getStartingPosition(), msg.getTopic(), connection);
           }
         }
       }
@@ -396,13 +396,13 @@ public class Broker {
         }
       }
 
-      if (model != null && model.equals(Constant.PUSH)) {
-        if (msg.getTopic().equals(topicRequest) && offsetCount != 0
-            && offsetIndex.size() > 1 && startingPosRequest < offsetCount) {
-          sendEachMsgToPushBasedConsumer(startingPosRequest, topicRequest, consumerConnection);
-          startingPosRequest += msg.getOffset();
-        }
-      }
+//      if (model != null && model.equals(Constant.PUSH) && msg.getTopic().equalsIgnoreCase(topicRequest) ) {
+//        LOGGER.info(msg.getTopic() + "/" + topicRequest +" | Sending to consumer push based: " + msg.getData().toStringUtf8());
+//        if (offsetCount != 0 && offsetIndex.size() > 1 && startingPosRequest < offsetCount) {
+//          sendEachMsgToPushBasedConsumer(startingPosRequest, topicRequest, consumerConnection);
+//          startingPosRequest += msg.getOffset();
+//        }
+//      }
     }
   }
 
