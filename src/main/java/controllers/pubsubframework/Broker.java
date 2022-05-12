@@ -19,7 +19,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -167,7 +166,7 @@ public class Broker {
         try {
           msg = Message.parseFrom(msgByte);
         } catch (InvalidProtocolBufferException e) {
-          LOGGER.warning("Error in getting msg from producer: " + e.getMessage());
+          LOGGER.warning("Error in getting msg: " + e.getMessage());
         }
         if (msg != null) {
           if (msg.getTypeValue() == 0) {
@@ -216,7 +215,6 @@ public class Broker {
                 msg.getOffset(), msg.getSrcId(), msg.getMsgId());
             membershipTable.updateBrokerVersion(brokerId, offsetCount);
           } else if (msg.getTypeValue() == 2) {
-            // OFFSET
             LOGGER.info("Received request from customer for message topic/offset: "
                 + msg.getTopic() + "/ " + msg.getStartingPosition());
             sendToConsumerFromOffset(connection, msg);
@@ -225,12 +223,11 @@ public class Broker {
           } else if (msg.getTypeValue() == 4) {
             LOGGER.info("Received replication request from broker: " + msg.getSrcId());
             MembershipUtils.updatePubSubConnection(membershipTable, msg.getSrcId(), connection);
-            // some topic has been flushed to storage
-
             int currOffsetCount = offsetCount;
             if (currOffsetCount == 0) {
               replicationHandler.sendTopicMap(connection);
             } else {
+              // some topic has been flushed to storage
               sendSnapshotToBrokerFromOffset(connection, currOffsetCount);
             }
           }
@@ -372,13 +369,14 @@ public class Broker {
         } catch (IOException e) {
           LOGGER.warning("Error while flushing to disk: " + e.getMessage());
         }
-      }
-      try {
-        Files.write(filePathSave, msgArr, StandardOpenOption.APPEND);
-        incrementOffset(msg);
-        topicList.remove(i);
-      } catch (IOException e) {
-        LOGGER.warning("Error while flushing to disk: " + e.getMessage());
+      } else {
+        try {
+          Files.write(filePathSave, msgArr, StandardOpenOption.APPEND);
+          incrementOffset(msg);
+          topicList.remove(i);
+        } catch (IOException e) {
+          LOGGER.warning("Error while flushing to disk: " + e.getMessage());
+        }
       }
     }
   }
@@ -431,17 +429,15 @@ public class Broker {
     while (countOffsetSent <= currOffset) {
       LOGGER.info("Snapshot offset count: " + countOffsetSent + "/" + currOffset);
       byte[] data = getBytes(countOffsetSent);
-      LOGGER.info("Snapshot data: " + ByteString.copyFrom(data));
+      String log = ByteString.copyFrom(data).toStringUtf8();
       offset = data.length;
       countOffsetSent += offset;
 
-//      LOGGER.info("Snapshot topic: " + ReplicationUtils.getTopic(
-//          String.valueOf(ByteString.copyFrom(data))));
       MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
           .setTypeValue(1)
-          .setTopic("product")
           .setData(ByteString.copyFrom(data))
           .setOffset(offset)
+          .setTopic(ReplicationUtils.getTopic(log))
           .setSrcId(PubSubUtils.getBrokerLocation(host, port))
           .setMsgId(id)
           .setIsSnapshot(true)

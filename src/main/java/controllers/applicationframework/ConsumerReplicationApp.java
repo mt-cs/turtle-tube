@@ -60,11 +60,12 @@ public class ConsumerReplicationApp {
               LOGGER.warning("Exception during consumer application write: " + e.getMessage());
             }
             LOGGER.info("Creating consumer application file path: " + filePathSave);
-          }
-          try {
-            Files.write(filePathSave, message, StandardOpenOption.APPEND);
-          } catch (IOException e) {
-            e.printStackTrace();
+          } else {
+            try {
+              Files.write(filePathSave, message, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+              e.printStackTrace();
+            }
           }
         }
       }
