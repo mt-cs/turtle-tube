@@ -194,8 +194,9 @@ public class ConsumerReplication {
           offsetCount += msgFromBroker.getData().size();
           byte[] data = msgFromBroker.getData().toByteArray();
           LOGGER.info("Received from broker message topic: "
-              + msgFromBroker.getTopic() + ". Data: " + msgFromBroker.getData());
+              + msgFromBroker.getTopic() + ". Data: " + msgFromBroker.getData().toStringUtf8());
           blockingQueue.put(data);
+          LOGGER.info("Data added to blocking queue");
         }
       }
     }

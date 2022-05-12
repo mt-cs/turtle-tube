@@ -42,6 +42,7 @@ import util.ReplicationAppUtils;
 public class Broker {
   private final ExecutorService threadPool;
   private String host;
+  private String model;
   private final int port;
   private int leaderBasedPort;
   private int brokerId;
@@ -55,7 +56,7 @@ public class Broker {
   private ReplicationHandler replicationHandler;
   private FaultInjector faultInjector;
   private final List<Integer> offsetIndex;
-  private ConcurrentHashMap<String, List<Message>> topicMap;
+  private final ConcurrentHashMap<String, List<Message>> topicMap;
   private final ConcurrentHashMap<String, List<Message>> topicMapSnapshotSyncUp;
   private final ConcurrentHashMap<String, List<Message>> topicMapReplicationSyncUp;
   private boolean isRunning = true;
@@ -215,6 +216,7 @@ public class Broker {
                 msg.getOffset(), msg.getSrcId(), msg.getMsgId());
             membershipTable.updateBrokerVersion(brokerId, offsetCount);
           } else if (msg.getTypeValue() == 2) {
+            model = Constant.PULL;
             LOGGER.info("Received request from customer for message topic/offset: "
                 + msg.getTopic() + "/ " + msg.getStartingPosition());
             sendToConsumerFromOffset(connection, msg);
@@ -231,6 +233,7 @@ public class Broker {
               sendSnapshotToBrokerFromOffset(connection, currOffsetCount);
             }
           } else if (msg.getTypeValue() == 5) {
+            model = Constant.PUSH;
             LOGGER.info("Received request from Push-Based customer for message topic/offset: "
                 + msg.getTopic() + "/ " + msg.getStartingPosition());
             sendToPushBasedConsumer(msg.getStartingPosition(), msg.getTopic(), connection);
@@ -430,7 +433,7 @@ public class Broker {
     LOGGER.info("Sending snapshot offset... Current offset: " + currOffset);
     int countOffsetSent = 0, id = 1, offset;
     boolean isSent;
-    while (countOffsetSent <= currOffset) {
+    while (countOffsetSent < currOffset) {
       LOGGER.info("Snapshot offset count: " + countOffsetSent + "/" + currOffset);
       byte[] data = getBytes(countOffsetSent);
       String log = ByteString.copyFrom(data).toStringUtf8();
@@ -475,7 +478,6 @@ public class Broker {
       nextIdx = offsetIndex.indexOf(startingOffset) + 1;
       if (nextIdx >= offsetIndex.size()) {
         LOGGER.warning("End of file...");
-        return new byte[0];
       }
       byteSize = offsetIndex.get(nextIdx) - startingOffset;
       data = new byte[byteSize];
@@ -495,7 +497,6 @@ public class Broker {
 //   save to file
 //   send to consumer
 
-
   /**
    * Sending message to push-based customer
    * from starting position to max pull
@@ -505,6 +506,7 @@ public class Broker {
    */
   public void sendToPushBasedConsumer(int startingOffset, String topic,
       ConnectionHandler connection) {
+    LOGGER.info("Sending data to push-based consumer: ");
     int countOffsetSent = 0, offset;
     while (countOffsetSent <= PubSubUtils.getFileSize(ReplicationAppUtils.getOffsetFile())) {
       byte[] data = getBytes(startingOffset);
@@ -523,7 +525,7 @@ public class Broker {
       if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
         return;
       }
-      LOGGER.info("Sending data to push-based consumer: " + ByteString.copyFrom(data));
+      LOGGER.info("Sent data: " + ByteString.copyFrom(data));
       connection.send(msgInfo.toByteArray());
     }
     sendClose(connection);

@@ -41,7 +41,7 @@ public class ConsumerReplicationApp {
     try {
       consumerAppThread.join();
     } catch (InterruptedException e) {
-      e.printStackTrace();
+      LOGGER.warning("Consumer app file thread join error: " + e.getMessage());
     }
   }
 
@@ -52,9 +52,11 @@ public class ConsumerReplicationApp {
   private class ApplicationWrite implements Runnable{
     @Override
     public void run() {
+      LOGGER.info("Starting consumer app... ");
       while (true) {
+        LOGGER.info("Polling from blocking queue... ");
         byte[] message = consumer.poll(Duration.ofMillis(Constant.POLL_TIMEOUT));
-
+        LOGGER.info("Polling from blocking queue... ");
         if (message != null) {
           Path filePathSave = Path.of(ReplicationAppUtils.getOffsetFile());
           if (!Files.exists(filePathSave)) {
@@ -68,7 +70,7 @@ public class ConsumerReplicationApp {
             try {
               Files.write(filePathSave, message, StandardOpenOption.APPEND);
             } catch (IOException e) {
-              e.printStackTrace();
+              LOGGER.warning("Consumer app file write exception: " + e.getMessage());
             }
           }
         }
