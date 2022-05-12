@@ -56,23 +56,7 @@ public class ConsumerReplicationApp {
         LOGGER.info("Polling from blocking queue... ");
         byte[] message = consumer.poll(Duration.ofMillis(Constant.POLL_TIMEOUT));
         LOGGER.info("Polling from blocking queue... ");
-        if (message != null) {
-          Path filePathSave = Path.of(ReplicationAppUtils.getOffsetFile());
-          if (!Files.exists(filePathSave)) {
-            try {
-              Files.write(filePathSave, message);
-            } catch (IOException e) {
-              LOGGER.warning("Exception during consumer application write: " + e.getMessage());
-            }
-            LOGGER.info("Creating consumer application file path: " + filePathSave);
-          } else {
-            try {
-              Files.write(filePathSave, message, StandardOpenOption.APPEND);
-            } catch (IOException e) {
-              LOGGER.warning("Consumer app file write exception: " + e.getMessage());
-            }
-          }
-        }
+        ConsumerReplication.flushToFile(message, LOGGER);
       }
     }
   }

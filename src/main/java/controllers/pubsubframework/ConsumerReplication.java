@@ -204,24 +204,28 @@ public class ConsumerReplication {
 
 
           if (model.equals(Constant.PUSH)) {
-            if (data != null) {
-              Path filePathSave = Path.of(ReplicationAppUtils.getOffsetFile());
-              if (!Files.exists(filePathSave)) {
-                try {
-                  Files.write(filePathSave, data);
-                } catch (IOException e) {
-                  LOGGER.warning("Exception during consumer application write: " + e.getMessage());
-                }
-                LOGGER.info("Creating consumer application file path: " + filePathSave);
-              } else {
-                try {
-                  Files.write(filePathSave, data, StandardOpenOption.APPEND);
-                } catch (IOException e) {
-                  LOGGER.warning("Consumer app file write exception: " + e.getMessage());
-                }
-              }
-            }
+            flushToFile(data, LOGGER);
           }
+        }
+      }
+    }
+  }
+
+  public static void flushToFile(byte[] data, Logger logger) {
+    if (data != null) {
+      Path filePathSave = Path.of(ReplicationAppUtils.getOffsetFile());
+      if (!Files.exists(filePathSave)) {
+        try {
+          Files.write(filePathSave, data);
+        } catch (IOException e) {
+          logger.warning("Exception during consumer application write: " + e.getMessage());
+        }
+        logger.info("Creating consumer application file path: " + filePathSave);
+      } else {
+        try {
+          Files.write(filePathSave, data, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+          logger.warning("Consumer app file write exception: " + e.getMessage());
         }
       }
     }

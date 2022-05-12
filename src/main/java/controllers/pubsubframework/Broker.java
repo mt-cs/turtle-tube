@@ -47,6 +47,11 @@ public class Broker {
   private int leaderBasedPort;
   private int brokerId;
   private int offsetCount;
+
+  private int startingPosRequest;
+  private String topicRequest;
+  private ConnectionHandler consumerConnection;
+
   private volatile boolean isLeader;
   private volatile boolean isSyncUp;
   private ConnectionHandler leaderConnection;
@@ -234,9 +239,14 @@ public class Broker {
             }
           } else if (msg.getTypeValue() == 5) {
             model = Constant.PUSH;
+            startingPosRequest = msg.getStartingPosition();
+            topicRequest = msg.getTopic();
+            consumerConnection = connection;
+
+
             LOGGER.info("Received request from Push-Based customer for message topic/offset: "
                 + msg.getTopic() + "/ " + msg.getStartingPosition());
-            sendToPushBasedConsumer(msg.getStartingPosition(), msg.getTopic(), connection);
+//            sendToPushBasedConsumer(msg.getStartingPosition(), msg.getTopic(), connection);
           }
         }
       }
@@ -385,6 +395,14 @@ public class Broker {
           LOGGER.warning("Error while flushing to disk: " + e.getMessage());
         }
       }
+
+      if (model != null && model.equals(Constant.PUSH)) {
+        if (msg.getTopic().equals(topicRequest) && offsetCount != 0
+            && offsetIndex.size() > 1 && startingPosRequest < offsetCount) {
+          sendEachMsgToPushBasedConsumer(startingPosRequest, topicRequest, consumerConnection);
+          startingPosRequest += msg.getOffset();
+        }
+      }
     }
   }
 
@@ -512,7 +530,7 @@ public class Broker {
     while (countOffsetSent <= PubSubUtils.getFileSize(ReplicationAppUtils.getOffsetFile())) {
       byte[] data = getBytes(startingOffset);
       offset = data.length;
-      if (data.length == 0) {
+      if (offset == 0) {
         return;
       }
       startingOffset += offset;
@@ -530,6 +548,33 @@ public class Broker {
       connection.send(msgInfo.toByteArray());
     }
     sendClose(connection);
+  }
+
+  /**
+   * Sending message to push-based customer
+   * from starting position to max pull
+   *
+   * @param startingOffset initial message offset
+   * @param topic          topic
+   */
+  public void sendEachMsgToPushBasedConsumer(int startingOffset, String topic,
+      ConnectionHandler connection) {
+    LOGGER.info("Sending data to push-based consumer: ");
+    byte[] data = getBytes(startingOffset);
+    if (data.length == 0) {
+      return;
+    }
+    MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
+        .setTypeValue(1)
+        .setTopic(topic)
+        .setData(ByteString.copyFrom(data))
+        .setOffset(data.length)
+        .build();
+    if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
+      return;
+    }
+    LOGGER.info("Sent data: " + ByteString.copyFrom(data));
+    connection.send(msgInfo.toByteArray());
   }
 
   /**
