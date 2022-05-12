@@ -1,16 +1,11 @@
 package controllers.applicationframework;
 
 import controllers.pubsubframework.ConsumerReplication;
-import controllers.replicationmodule.ReplicationUtils;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
+import controllers.pubsubframework.PubSubUtils;
 import java.time.Duration;
 import java.util.logging.Logger;
 import model.config.ConsumerConfig;
 import util.Constant;
-import util.ReplicationAppUtils;
 
 /**
  * An application running on any host
@@ -53,10 +48,9 @@ public class ConsumerReplicationApp {
     public void run() {
       LOGGER.info("Consumer application write... ");
       while (true) {
-        LOGGER.info("Polling from blocking queue... ");
+        LOGGER.info("Consumer application polling from blocking queue... ");
         byte[] message = consumer.poll(Duration.ofMillis(Constant.POLL_TIMEOUT));
-        LOGGER.info("Polling from blocking queue... ");
-        ConsumerReplication.flushToFile(message, LOGGER);
+        PubSubUtils.flushToFile(message);
       }
     }
   }

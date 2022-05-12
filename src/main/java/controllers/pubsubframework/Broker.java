@@ -63,7 +63,6 @@ public class Broker {
   private FaultInjector faultInjector;
   private final List<Integer> offsetIndex;
   private final ConcurrentHashMap<String, List<Message>> topicMap;
-  private final ConcurrentHashMap<String, List<Message>> topicMapSnapshotSyncUp;
   private final ConcurrentHashMap<String, List<Message>> topicMapReplicationSyncUp;
   private boolean isRunning = true;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
@@ -76,7 +75,6 @@ public class Broker {
   public Broker(int port) {
     this.port = port;
     this.topicMap = new ConcurrentHashMap<>();
-    this.topicMapSnapshotSyncUp = new ConcurrentHashMap<>();
     this.topicMapReplicationSyncUp = new ConcurrentHashMap<>();
     this.threadPool
         = Executors.newFixedThreadPool(Constant.NUM_THREADS);
@@ -103,7 +101,6 @@ public class Broker {
     this.isLeader = isLeader;
     this.isSyncUp = true;
     this.topicMap = new ConcurrentHashMap<>();
-    this.topicMapSnapshotSyncUp = new ConcurrentHashMap<>();
     this.topicMapReplicationSyncUp = new ConcurrentHashMap<>();
     this.offsetCount = 0;
     this.offsetIndex = Collections.synchronizedList(new ArrayList<>());
@@ -203,9 +200,8 @@ public class Broker {
                 isSyncUp = false;
                 // End of snapshot merge topic map of snapshot and replication
                 LOGGER.info("Merging topic map catch up...");
-                replicationHandler.mergeTopicMap(topicMapReplicationSyncUp, topicMapSnapshotSyncUp);
+                replicationHandler.copyToTopicMap(topicMapReplicationSyncUp);
                 topicMapReplicationSyncUp.clear();
-                topicMapSnapshotSyncUp.clear();
                 LOGGER.info("Sync up completed!");
 
                 // flush all to disk
@@ -216,7 +212,7 @@ public class Broker {
               }
               // Getting snapshot to catch up
               LOGGER.info(msg.getMsgId() + " | Sync Up! Received msgInfo snapshot from broker: " + msg.getSrcId());
-              replicationHandler.storeMsgToTopicMap(msg, topicMapSnapshotSyncUp);
+              PubSubUtils.flushToFile(msg.getData().toByteArray());
             }
             replicationHandler.sendAck(connection, PubSubUtils.getBrokerLocation(host, port),
                 msg.getOffset(), msg.getSrcId(), msg.getMsgId());

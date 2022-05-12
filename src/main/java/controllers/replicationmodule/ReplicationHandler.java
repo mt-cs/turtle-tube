@@ -253,20 +253,7 @@ public class ReplicationHandler {
     connection.send(msgInfoLast.toByteArray());
   }
 
-  /**
-   * Merge catchUp snapshot and replication topicMap
-   *
-   * @param topicMapReplication replication map
-   * @param topicMapSnapshot    snapshot map
-   */
-  public synchronized void mergeTopicMap(
-      ConcurrentHashMap<String, List<Message>> topicMapReplication,
-      ConcurrentHashMap<String, List<Message>> topicMapSnapshot) {
-    copyToTopicMap(topicMapSnapshot);
-    copyToTopicMap(topicMapReplication);
-  }
-
-  private void copyToTopicMap(ConcurrentHashMap<String, List<Message>> topicMapSnapshot) {
+  public void copyToTopicMap(ConcurrentHashMap<String, List<Message>> topicMapSnapshot) {
     for (Entry<String, List<Message>> topic : topicMapSnapshot.entrySet()) {
       List<Message> msgList = topicMapSnapshot.get(topic.getKey());
       if (topicMap.containsKey(topic.getKey())) {

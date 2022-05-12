@@ -3,6 +3,10 @@ package controllers.pubsubframework;
 import controllers.messagingframework.ConnectionHandler;
 import interfaces.FaultInjector;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Scanner;
 import java.util.Timer;
@@ -11,6 +15,7 @@ import java.util.logging.Logger;
 import model.MsgInfo;
 import model.MsgInfo.Message;
 import org.apache.commons.codec.digest.DigestUtils;
+import util.ReplicationAppUtils;
 import util.Utils;
 
 /**
@@ -46,6 +51,26 @@ public class PubSubUtils {
 
   public static long getFileSize(String filePath) {
     return new File(filePath).length();
+  }
+
+  public static void flushToFile(byte[] data) {
+    if (data != null) {
+      Path filePathSave = Path.of(ReplicationAppUtils.getOffsetFile());
+      if (!Files.exists(filePathSave)) {
+        try {
+          Files.write(filePathSave, data);
+        } catch (IOException e) {
+          LOGGER.warning("Exception during consumer application write: " + e.getMessage());
+        }
+        LOGGER.info("Creating consumer application file path: " + filePathSave);
+      } else {
+        try {
+          Files.write(filePathSave, data, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+          LOGGER.warning("Consumer app file write exception: " + e.getMessage());
+        }
+      }
+    }
   }
 
   /**
