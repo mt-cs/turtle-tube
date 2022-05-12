@@ -180,22 +180,26 @@ public class Broker {
                 // Continue getting replication during sync up
                 LOGGER.info(msg.getMsgId() + " | Sync Up! Received msgInfo replicate from broker: " + msg.getSrcId());
                 replicationHandler.storeMsgToTopicMap(msg, topicMapReplicationSyncUp);
+              } else {
+                // Normal replication
+                LOGGER.info(msg.getMsgId() + " | Received msgInfo replicate from broker: " + msg.getSrcId());
+                replicationHandler.storeMsgToTopicMap(msg, topicMap);
+                if (topicMap.get(msg.getTopic()).size() > Constant.MAX_OFFSET_SIZE) {
+                  flushToDisk(topicMap.get(msg.getTopic()));
+                }
               }
-              // Normal replication
-              LOGGER.info(msg.getMsgId() + " | Received msgInfo replicate from broker: " + msg.getSrcId());
-              replicationHandler.storeMsgToTopicMap(msg, topicMap);
             } else {
               // SYNC UP
               isSyncUp = true;
               if (msg.getTopic().equals(Constant.LAST_SNAPSHOT)) {
+                isSyncUp = false;
                 // End of snapshot merge topic map of snapshot and replication
                 LOGGER.info("Merging topic map catch up...");
-//                topicMap = ReplicationUtils.mergeTopicMap(topicMap, topicMapCatchUp);
                 replicationHandler.mergeTopicMap(topicMapReplicationSyncUp, topicMapSnapshotSyncUp);
                 topicMapReplicationSyncUp.clear();
                 topicMapSnapshotSyncUp.clear();
-                isSyncUp = false;
                 LOGGER.info("Sync up completed!");
+
                 // flush all to disk
                 for (Map.Entry<String, List<Message>> topic : topicMap.entrySet()) {
                   flushToDisk(topicMap.get(topic.getKey()));
