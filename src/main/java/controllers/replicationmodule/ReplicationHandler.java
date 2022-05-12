@@ -252,4 +252,32 @@ public class ReplicationHandler {
         .build();
     connection.send(msgInfoLast.toByteArray());
   }
+
+  /**
+   * Merge catchUp snapshot and replication topicMap
+   *
+   * @param topicMapReplication replication map
+   * @param topicMapSnapshot    snapshot map
+   */
+  public synchronized void mergeTopicMap(
+      ConcurrentHashMap<String, List<Message>> topicMapReplication,
+      ConcurrentHashMap<String, List<Message>> topicMapSnapshot) {
+    copyToTopicMap(topicMapSnapshot);
+    copyToTopicMap(topicMapReplication);
+  }
+
+  private void copyToTopicMap(ConcurrentHashMap<String, List<Message>> topicMapSnapshot) {
+    for (Entry<String, List<Message>> topic : topicMapSnapshot.entrySet()) {
+      List<Message> msgList = topicMapSnapshot.get(topic.getKey());
+      if (topicMap.containsKey(topic.getKey())) {
+        for (Message msg : msgList) {
+          topicMap.get(topic.getKey()).add(msg);
+          LOGGER.info("Catch up snapshot merge:" + msg.getMsgId());
+        }
+      } else {
+        topicMap.putIfAbsent(topic.getKey(), msgList);
+        LOGGER.info("Catch up snapshot merge topic:" + topic.getKey());
+      }
+    }
+  }
 }
