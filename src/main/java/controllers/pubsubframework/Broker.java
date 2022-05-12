@@ -173,16 +173,21 @@ public class Broker {
               receiveFromProducer(connection, msg);
             }
           } else if (msg.getTypeValue() == 1) {
+            // SYNC UP
             if (!msg.getIsSnapshot()) {
+              // Continue getting replication
               LOGGER.info(msg.getMsgId() + " | Received msgInfo replicate from broker: " + msg.getSrcId());
               replicationHandler.storeMsgToTopicMap(msg, topicMap);
             } else {
               if (msg.getTopic().equals(Constant.LAST_SNAPSHOT)) {
+                // End of snapshot merge topic map of snapshot and replication
                 LOGGER.info("Merging topic map catch up...");
                 topicMap = ReplicationUtils.mergeTopicMap(topicMap, topicMapCatchUp);
                 topicMapCatchUp.clear();
+                // flush to disk
                 continue;
               }
+              // Getting snapshot to catch up
               LOGGER.info(msg.getMsgId() + " | Received msgInfo snapshot from broker: " + msg.getSrcId());
               replicationHandler.storeMsgToTopicMap(msg, topicMapCatchUp);
             }
@@ -308,9 +313,9 @@ public class Broker {
       topicMap.get(msgFromProducer.getTopic()).add(msgFromProducer);
       LOGGER.info(PubSubUtils.getMsgTopicInfo(msgFromProducer));
     }
-    offsetIndex.add(offsetCount);
-    LOGGER.info("Offset count: " + offsetCount);
-    offsetCount += msgFromProducer.getOffset();
+//    offsetIndex.add(offsetCount);
+//    LOGGER.info("Offset count: " + offsetCount);
+//    offsetCount += msgFromProducer.getOffset();
 
     if (topicMap.get(msgFromProducer.getTopic()).size() > Constant.MAX_OFFSET_SIZE) {
       flushToDisk(topicMap.get(msgFromProducer.getTopic()));
@@ -340,6 +345,9 @@ public class Broker {
       if (!Files.exists(filePathSave)) {
         try {
           Files.write(filePathSave, msgArr);
+          offsetIndex.add(offsetCount);
+          LOGGER.info("Offset count: " + offsetCount);
+          offsetCount += msg.getOffset();
           topicList.remove(i);
         } catch (IOException e) {
           LOGGER.warning("Error while flushing to disk: " + e.getMessage());
@@ -347,12 +355,16 @@ public class Broker {
       }
       try {
         Files.write(filePathSave, msgArr, StandardOpenOption.APPEND);
+        offsetIndex.add(offsetCount);
+        LOGGER.info("Offset count: " + offsetCount);
+        offsetCount += msg.getOffset();
         topicList.remove(msg);
       } catch (IOException e) {
         LOGGER.warning("Error while flushing to disk: " + e.getMessage());
       }
     }
   }
+
 
   /**
    * Send message to consumer using offset
@@ -406,13 +418,13 @@ public class Broker {
     return data;
   }
 
-  // PUSH BASE
-  // consumer connect I am a push based subscribe to this topic
-  // while loop trying to receive msg
-  // broker get topic request
-  // get message
-  // save to file
-  // send to consumer
+//   PUSH BASE
+//   consumer connect I am a push based subscribe to this topic
+//   while loop trying to receive msg
+//   broker get topic request
+//   get message
+//   save to file
+//   send to consumer
 
   /**
    * Sending message to customer
