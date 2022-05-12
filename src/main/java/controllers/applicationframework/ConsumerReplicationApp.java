@@ -63,7 +63,6 @@ public class ConsumerReplicationApp {
           }
           try {
             Files.write(filePathSave, message, StandardOpenOption.APPEND);
-            Files.writeString(filePathSave, "\n", StandardOpenOption.APPEND);
           } catch (IOException e) {
             e.printStackTrace();
           }

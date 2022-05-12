@@ -52,6 +52,7 @@ public class StreamProcessor {
           continue;
         }
         topic = urlSplit[1];
+        line += "\n";
         byte[] data = line.getBytes(StandardCharsets.UTF_8);
         streamList.add(new LogStream(topic, hostName, data));
       }

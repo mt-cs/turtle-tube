@@ -10,6 +10,7 @@ import java.util.logging.Logger;
 import model.Membership.MemberInfo;
 import model.MsgInfo;
 import model.MsgInfo.Message;
+import util.Constant;
 
 /**
  * Helper util for replication
@@ -43,29 +44,12 @@ public class ReplicationUtils {
     loadBalancerConnection.send(addressRequest.toByteArray());
   }
 
-  /**
-   * Merge catchUp snapshot and replication topicMap
-   *
-   * @param topicMapReplication replication map
-   * @param topicMapSnapshot    snapshot map
-   * @return merger map
-   */
-  public static synchronized ConcurrentHashMap<String, List<Message>> mergeTopicMap(
-      ConcurrentHashMap<String, List<Message>> topicMapReplication,
-      ConcurrentHashMap<String, List<Message>> topicMapSnapshot) {
-
-    for (Map.Entry<String, List<Message>> topic : topicMapReplication.entrySet()) {
-      List<MsgInfo.Message> msgList = topicMapReplication.get(topic.getKey());
-      if (topicMapSnapshot.containsKey(topic.getKey())) {
-        for (MsgInfo.Message msg : msgList) {
-          topicMapSnapshot.get(topic.getKey()).add(msg);
-          LOGGER.info("Catch up snapshot merge:" + msg.getMsgId());
-        }
-      } else {
-        topicMapSnapshot.putIfAbsent(topic.getKey(), msgList);
-        LOGGER.info("Catch up snapshot merge topic:" + topic.getKey());
-      }
+  public static String getTopic(String line) {
+    String[] lineSplit = line.split(Constant.SPACE);
+    String[] urlSplit = lineSplit[6].split(Constant.SLASH);
+    if (urlSplit.length == 0) {
+      return "";
     }
-    return topicMapSnapshot;
+    return urlSplit[1];
   }
 }

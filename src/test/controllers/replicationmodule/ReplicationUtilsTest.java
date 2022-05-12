@@ -41,7 +41,6 @@ class ReplicationUtilsTest {
     topicMapCatchUp.put("image", listTopicImg);
     topicMapCatchUp.put("price", listTopicPrice);
 
-    topicMap = ReplicationUtils.mergeTopicMap(topicMap, topicMapCatchUp);
     StringBuilder sb = new StringBuilder();
     topicMap.forEach((key, value) -> sb.append(key).append(" ").append(value.toString()));
     assertEquals("image [msgId: 1\n"

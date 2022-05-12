@@ -3,7 +3,6 @@ package controllers.applicationframework;
 import controllers.pubsubframework.Broker;
 import model.config.BrokerConfig;
 
-
 /**
  * Broker runner app
  *

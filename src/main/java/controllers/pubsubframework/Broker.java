@@ -10,6 +10,7 @@ import controllers.messagingframework.ConnectionHandler;
 import controllers.messagingframework.Listener;
 import controllers.faultinjector.FaultInjectorFactory;
 import controllers.replicationmodule.ReplicationHandler;
+import controllers.replicationmodule.ReplicationUtils;
 import interfaces.FaultInjector;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -18,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -223,7 +225,14 @@ public class Broker {
           } else if (msg.getTypeValue() == 4) {
             LOGGER.info("Received replication request from broker: " + msg.getSrcId());
             MembershipUtils.updatePubSubConnection(membershipTable, msg.getSrcId(), connection);
-            replicationHandler.sendTopicMap(connection);
+            // some topic has been flushed to storage
+
+            int currOffsetCount = offsetCount;
+            if (currOffsetCount == 0) {
+              replicationHandler.sendTopicMap(connection);
+            } else {
+              sendSnapshotToBrokerFromOffset(connection, currOffsetCount);
+            }
           }
         }
       }
@@ -367,7 +376,7 @@ public class Broker {
       try {
         Files.write(filePathSave, msgArr, StandardOpenOption.APPEND);
         incrementOffset(msg);
-        topicList.remove(msg);
+        topicList.remove(i);
       } catch (IOException e) {
         LOGGER.warning("Error while flushing to disk: " + e.getMessage());
       }
@@ -406,6 +415,48 @@ public class Broker {
       connection.send(msgInfo.toByteArray());
     }
     sendClose(connection);
+  }
+
+  /**
+   * Send snapshot to broker using offset
+   */
+  public void sendSnapshotToBrokerFromOffset(ConnectionHandler connection, int currOffset) {
+    if (currOffset == 0) {
+      LOGGER.info("Persistent storage is empty");
+      return;
+    }
+    LOGGER.info("Sending snapshot offset... Current offset: " + currOffset);
+    int countOffsetSent = 0, id = 1, offset;
+    boolean isSent;
+    while (countOffsetSent <= currOffset) {
+      LOGGER.info("Snapshot offset count: " + countOffsetSent + "/" + currOffset);
+      byte[] data = getBytes(countOffsetSent);
+      LOGGER.info("Snapshot data: " + ByteString.copyFrom(data));
+      offset = data.length;
+      countOffsetSent += offset;
+
+//      LOGGER.info("Snapshot topic: " + ReplicationUtils.getTopic(
+//          String.valueOf(ByteString.copyFrom(data))));
+      MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
+          .setTypeValue(1)
+          .setTopic("product")
+          .setData(ByteString.copyFrom(data))
+          .setOffset(offset)
+          .setSrcId(PubSubUtils.getBrokerLocation(host, port))
+          .setMsgId(id)
+          .setIsSnapshot(true)
+          .build();
+      if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
+        return;
+      }
+      isSent = connection.send(msgInfo.toByteArray());
+      if (isSent) {
+        LOGGER.info(id++ + " | Sent snapshot of: " + ByteString.copyFrom(data));
+      } else {
+        LOGGER.warning("Sent failed for msgId: " + id++);
+      }
+    }
+    replicationHandler.sendLastSnapshot(connection);
   }
 
   /**
