@@ -230,6 +230,10 @@ public class Broker {
               // some topic has been flushed to storage
               sendSnapshotToBrokerFromOffset(connection, currOffsetCount);
             }
+          } else if (msg.getTypeValue() == 5) {
+            LOGGER.info("Received request from Push-Based customer for message topic/offset: "
+                + msg.getTopic() + "/ " + msg.getStartingPosition());
+            sendToPushBasedConsumer(msg.getStartingPosition(), msg.getTopic(), connection);
           }
         }
       }
@@ -469,6 +473,10 @@ public class Broker {
         startingOffset = PubSubUtils.getClosestOffset(offsetIndex, startingOffset);
       }
       nextIdx = offsetIndex.indexOf(startingOffset) + 1;
+      if (nextIdx >= offsetIndex.size()) {
+        LOGGER.warning("End of file...");
+        return new byte[0];
+      }
       byteSize = offsetIndex.get(nextIdx) - startingOffset;
       data = new byte[byteSize];
       inputStream.skip(startingOffset);
@@ -487,34 +495,36 @@ public class Broker {
 //   save to file
 //   send to consumer
 
+
   /**
-   * Sending message to customer
+   * Sending message to push-based customer
    * from starting position to max pull
    *
-   * @param startingPosition initial message
-   * @param topic            topic
+   * @param startingOffset initial message offset
+   * @param topic          topic
    */
-  public void sendToConsumer(int startingPosition, String topic,
+  public void sendToPushBasedConsumer(int startingOffset, String topic,
       ConnectionHandler connection) {
-    if (topicMap.containsKey(topic)) {
-      List<MsgInfo.Message> msgList = topicMap.get(topic);
-      int index = startingPosition - 1;
-      for (int i = 0; i <= Constant.MAX_PULL; i++) {
-        if (index >= msgList.size()) {
-          break;
-        }
-        MsgInfo.Message msgFromProducer = msgList.get(index);
-        MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
-            .setTypeValue(1)
-            .setTopic(msgFromProducer.getTopic())
-            .setData(msgFromProducer.getData())
-            .build();
-        LOGGER.info("Sending data to consumer: " + msgFromProducer.getData());
-        connection.send(msgInfo.toByteArray());
-        index++;
+    int countOffsetSent = 0, offset;
+    while (countOffsetSent <= PubSubUtils.getFileSize(ReplicationAppUtils.getOffsetFile())) {
+      byte[] data = getBytes(startingOffset);
+      offset = data.length;
+      if (data.length == 0) {
+        return;
       }
-    } else {
-      LOGGER.warning("Topic: " + topic + " not found in Broker.");
+      startingOffset += offset;
+      countOffsetSent += offset;
+      MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
+          .setTypeValue(1)
+          .setTopic(topic)
+          .setData(ByteString.copyFrom(data))
+          .setOffset(offset)
+          .build();
+      if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
+        return;
+      }
+      LOGGER.info("Sending data to push-based consumer: " + ByteString.copyFrom(data));
+      connection.send(msgInfo.toByteArray());
     }
     sendClose(connection);
   }

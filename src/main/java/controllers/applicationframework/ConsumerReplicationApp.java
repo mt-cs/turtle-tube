@@ -1,6 +1,7 @@
 package controllers.applicationframework;
 
 import controllers.pubsubframework.ConsumerReplication;
+import controllers.replicationmodule.ReplicationUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,6 +10,7 @@ import java.time.Duration;
 import java.util.logging.Logger;
 import model.config.ConsumerConfig;
 import util.Constant;
+import util.ReplicationAppUtils;
 
 /**
  * An application running on any host
@@ -30,7 +32,9 @@ public class ConsumerReplicationApp {
   public void runConsumerApplication (ConsumerConfig consumerConfig) {
 
     consumer = new ConsumerReplication(consumerConfig.getLoadBalancerLocation(),
-        consumerConfig.getTopic(), consumerConfig.getStartingPosition());
+                                       consumerConfig.getTopic(),
+                                       consumerConfig.getStartingPosition(),
+                                       consumerConfig.getModel());
 
     Thread consumerAppThread = new Thread(new ApplicationWrite());
     consumerAppThread.start();
@@ -52,7 +56,7 @@ public class ConsumerReplicationApp {
         byte[] message = consumer.poll(Duration.ofMillis(Constant.POLL_TIMEOUT));
 
         if (message != null) {
-          Path filePathSave = Path.of("consumer_replication2.log");
+          Path filePathSave = Path.of(ReplicationAppUtils.getOffsetFile());
           if (!Files.exists(filePathSave)) {
             try {
               Files.write(filePathSave, message);

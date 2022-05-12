@@ -9,16 +9,18 @@ public class ConsumerConfig extends ReplicationConfig {
   private String loadBalancerLocation;
   private String topic;
   private int startingPosition;
+  private String model;
 
   /**
    * Constructor
    */
-  public ConsumerConfig(String type, int id, String loadBalancerLocation, String topic,
-      int startingPosition) {
+  public ConsumerConfig(String type, int id, String loadBalancerLocation,
+                        String topic, int startingPosition, String model) {
     super(type, id);
     this.loadBalancerLocation = loadBalancerLocation;
     this.topic = topic;
     this.startingPosition = startingPosition;
+    this.model = model;
   }
 
   /**
@@ -61,5 +63,19 @@ public class ConsumerConfig extends ReplicationConfig {
    */
   public void setStartingPosition(int startingPosition) {
     this.startingPosition = startingPosition;
+  }
+
+  /**
+   * Getter for model
+   */
+  public String getModel() {
+    return model;
+  }
+
+  /**
+   * Setter for model
+   */
+  public void setModel(String model) {
+    this.model = model;
   }
 }

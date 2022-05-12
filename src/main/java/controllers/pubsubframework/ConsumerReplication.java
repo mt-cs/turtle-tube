@@ -30,6 +30,7 @@ public class ConsumerReplication {
   private ConnectionHandler connection;
   private final BlockingQueue<byte[]> blockingQueue;
   private final String topic;
+  private final String model;
   private int startingPosition;
   private volatile boolean isRunning;
   private volatile boolean isElecting;
@@ -43,19 +44,24 @@ public class ConsumerReplication {
    * @param topic                 String topi
    * @param startingPosition      int poll starting position
    */
-  public ConsumerReplication(String loadBalancerLocation,
-                             String topic, int startingPosition) {
+  public ConsumerReplication(String loadBalancerLocation, String topic,
+                             int startingPosition, String model) {
     this.blockingQueue = new BlockingQueue<>(Constant.NUM_QUEUE);
     this.loadBalancerLocation = loadBalancerLocation;
     this.leaderLocation = "";
     this.topic = topic;
+    this.model = model;
     this.startingPosition = startingPosition;
     this.isRunning = true;
     this.isElecting = false;
     connectToLoadBalancer();
     getLeaderAddress();
     connectToBroker();
-    pollFromBroker(Constant.POLL_FREQ);
+    if (model.equals(Constant.PULL)) {
+      pollFromBroker(Constant.POLL_FREQ);
+    } else {
+      sendPushBasedRequestToBroker(topic, startingPosition);
+    }
   }
 
   /**
@@ -74,6 +80,23 @@ public class ConsumerReplication {
     connection = PubSubUtils.connectToBroker(leaderLocation,
         new FaultInjectorFactory(0).getChaos());
     LOGGER.info("Consumer is connected to broker: " + leaderLocation);
+  }
+
+  /**
+   * Introducing self to broker
+   *
+   * @param topic String topic
+   */
+  public void sendPushBasedRequestToBroker (String topic, int startingOffset) {
+    Message msgInfo = Message.newBuilder()
+        .setTypeValue(5)
+        .setTopic(topic)
+        .setStartingPosition(startingOffset)
+        .build();
+    connection.send(msgInfo.toByteArray());
+    LOGGER.info("Sending push-based request for topic: " + msgInfo.getTopic() +
+        ", starting position: " + msgInfo.getStartingPosition());
+    receiveFromBroker();
   }
 
   /**
@@ -129,6 +152,14 @@ public class ConsumerReplication {
       }
     }
   }
+
+//   PUSH BASE
+//   consumer connect I am a push based subscribe to this topic
+//   while loop trying to receive msg
+//   broker get topic request
+//   get message
+//   save to file
+//   send to consumer
 
   /**
    * Receive data from Broker

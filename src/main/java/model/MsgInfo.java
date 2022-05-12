@@ -232,6 +232,10 @@ public final class MsgInfo {
        * <code>SNAPSHOT = 4;</code>
        */
       SNAPSHOT(4),
+      /**
+       * <code>SUBSCRIBER = 5;</code>
+       */
+      SUBSCRIBER(5),
       UNRECOGNIZED(-1),
       ;
 
@@ -255,6 +259,10 @@ public final class MsgInfo {
        * <code>SNAPSHOT = 4;</code>
        */
       public static final int SNAPSHOT_VALUE = 4;
+      /**
+       * <code>SUBSCRIBER = 5;</code>
+       */
+      public static final int SUBSCRIBER_VALUE = 5;
 
 
       public final int getNumber() {
@@ -286,6 +294,7 @@ public final class MsgInfo {
           case 2: return CONSUMER;
           case 3: return ACK;
           case 4: return SNAPSHOT;
+          case 5: return SUBSCRIBER;
           default: return null;
         }
       }
@@ -1343,14 +1352,14 @@ public final class MsgInfo {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\020protos/msg.proto\"\354\001\n\007Message\022\036\n\004type\030\001" +
+      "\n\020protos/msg.proto\"\374\001\n\007Message\022\036\n\004type\030\001" +
       " \001(\0162\020.Message.srcType\022\r\n\005srcId\030\002 \001(\t\022\r\n" +
       "\005topic\030\003 \001(\t\022\014\n\004data\030\004 \001(\014\022\016\n\006offset\030\005 \001" +
       "(\005\022\030\n\020startingPosition\030\006 \001(\005\022\r\n\005msgId\030\010 " +
-      "\001(\005\022\022\n\nisSnapshot\030\t \001(\010\"H\n\007srcType\022\014\n\010PR" +
+      "\001(\005\022\022\n\nisSnapshot\030\t \001(\010\"X\n\007srcType\022\014\n\010PR" +
       "ODUCER\020\000\022\n\n\006BROKER\020\001\022\014\n\010CONSUMER\020\002\022\007\n\003AC" +
-      "K\020\003\022\014\n\010SNAPSHOT\020\004B\020\n\005modelB\007MsgInfob\006pro" +
-      "to3"
+      "K\020\003\022\014\n\010SNAPSHOT\020\004\022\016\n\nSUBSCRIBER\020\005B\020\n\005mod" +
+      "elB\007MsgInfob\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

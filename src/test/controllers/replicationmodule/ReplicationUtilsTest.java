@@ -2,6 +2,7 @@ package controllers.replicationmodule;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -70,5 +71,10 @@ class ReplicationUtilsTest {
       sb.append(entry.getKey() + " " + entry.getValue());
     });
     assertEquals("first [image, product, filter, news]", sb.toString());
+  }
+
+  @Test
+  public void testGetFileSize() {
+    System.out.println(new File("log/demo1.log").length());
   }
 }

@@ -2,6 +2,7 @@ package controllers.pubsubframework;
 
 import controllers.messagingframework.ConnectionHandler;
 import interfaces.FaultInjector;
+import java.io.File;
 import java.util.List;
 import java.util.Scanner;
 import java.util.Timer;
@@ -41,6 +42,10 @@ public class PubSubUtils {
       }
     }
     return offsetIndex.get(idx);
+  }
+
+  public static long getFileSize(String filePath) {
+    return new File(filePath).length();
   }
 
   /**

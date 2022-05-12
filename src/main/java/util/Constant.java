@@ -37,6 +37,8 @@ public class Constant {
   public static final String BROKER = "broker";
   public static final String CONSUMER = "consumer";
   public static final String LOADBALANCER = "loadbalancer";
+  public static final String PULL = "pull";
+  public static final String PUSH = "push";
 
   public static final String CLOSE = "close";
   public static final String SNAPSHOT = "snapshot";
