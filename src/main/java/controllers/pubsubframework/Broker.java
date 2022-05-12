@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,7 +47,6 @@ public class Broker {
   private final int port;
   private int leaderBasedPort;
   private int brokerId;
-  private int version;
   private int offsetCount;
   private volatile boolean isLeader;
   private ConnectionHandler leaderConnection;
@@ -58,7 +58,6 @@ public class Broker {
   private final List<Integer> offsetIndex;
   private ConcurrentHashMap<String, List<Message>> topicMap;
   private final ConcurrentHashMap<String, List<Message>> topicMapCatchUp;
-  private final ConcurrentHashMap<String, ConcurrentLinkedQueue<Message>> topicQueueMap;
   private boolean isRunning = true;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
@@ -73,11 +72,8 @@ public class Broker {
     this.topicMapCatchUp = new ConcurrentHashMap<>();
     this.threadPool
         = Executors.newFixedThreadPool(Constant.NUM_THREADS);
-
-    this.version = 1;
     this.offsetCount = 0;
     this.offsetIndex = Collections.synchronizedList(new ArrayList<>());
-    this.topicQueueMap = new ConcurrentHashMap<>();
   }
 
   /**
@@ -97,21 +93,16 @@ public class Broker {
     this.leaderBasedPort = leaderBasedPort;
     this.brokerId = brokerId;
     this.isLeader = isLeader;
-    this.version = 1;
     this.topicMap = new ConcurrentHashMap<>();
-
     this.topicMapCatchUp = new ConcurrentHashMap<>();
-
     this.offsetCount = 0;
     this.offsetIndex = Collections.synchronizedList(new ArrayList<>());
-    this.topicQueueMap = new ConcurrentHashMap<>();
-
     this.threadPool = Executors.newFixedThreadPool(Constant.NUM_THREADS);
     this.faultInjector = new FaultInjectorFactory(faultType).getChaos();
     this.membershipTable = new MembershipTable();
+
     ConnectionHandler loadBalancerConnection =
         new ConnectionHandler(Constant.LOCALHOST, Constant.LB_PORT, faultInjector);
-
     MembershipUtils.addSelfToMembershipTable(host, port,
         leaderBasedPort, isLeader, brokerId, membershipTable);
     if (isLeader) {
@@ -123,7 +114,6 @@ public class Broker {
         membershipTable, 1000L, bullyElection);
     this.heartBeatScheduler.start();
   }
-
 
   /**
    * Listening to connections
@@ -164,7 +154,6 @@ public class Broker {
         msgByte = connection.receive();
       } catch (IOException ioe) {
         LOGGER.warning("IOException in broker receive Msg: " + ioe.getMessage());
-        LOGGER.info("Broker data version: " + version);
         connection.close();
         break;
       }
@@ -199,11 +188,10 @@ public class Broker {
             }
             replicationHandler.sendAck(connection, PubSubUtils.getBrokerLocation(host, port),
                 msg.getOffset(), msg.getSrcId(), msg.getMsgId());
-            membershipTable.updateBrokerVersion(brokerId, version++);
+            membershipTable.updateBrokerVersion(brokerId, offsetCount);
           } else if (msg.getTypeValue() == 2) {
             LOGGER.info("Received request from customer for message topic/starting position: "
                 + msg.getTopic() + "/ " + msg.getStartingPosition());
-            // sendToConsumer(msg.getStartingPosition(), msg.getTopic(), connection);
 
             // OFFSET
             LOGGER.info("Received request from customer for message topic/offset: "
@@ -310,34 +298,22 @@ public class Broker {
    * @param msgFromProducer MsgInfo.Message
    */
   public void receiveFromProducer(ConnectionHandler connection, Message msgFromProducer) {
-
     if (!topicMap.containsKey(msgFromProducer.getTopic())) {
-      // OFFSET
-      ConcurrentLinkedQueue<MsgInfo.Message> msgLinkedQueue = new ConcurrentLinkedQueue<>();
-      msgLinkedQueue.add(msgFromProducer);
-
       List <MsgInfo.Message> msgList = Collections.synchronizedList(new ArrayList<>());
       msgList.add(msgFromProducer);
       LOGGER.info(PubSubUtils.getMsgTopicInfo(msgFromProducer));
       topicMap.put(msgFromProducer.getTopic(), msgList);
       LOGGER.info("New Topic List: " + msgFromProducer.getTopic() + " added to broker's topicMap");
-
-      // OFFSET
-      topicQueueMap.put(msgFromProducer.getTopic(), msgLinkedQueue);
     } else {
-      // OFFSET
-      topicQueueMap.get(msgFromProducer.getTopic()).add(msgFromProducer);
-
       topicMap.get(msgFromProducer.getTopic()).add(msgFromProducer);
       LOGGER.info(PubSubUtils.getMsgTopicInfo(msgFromProducer));
     }
-
     offsetIndex.add(offsetCount);
     LOGGER.info("Offset count: " + offsetCount);
     offsetCount += msgFromProducer.getOffset();
 
-    if (topicQueueMap.get(msgFromProducer.getTopic()).size() > Constant.MAX_OFFSET_SIZE) {
-      flushToDisk(topicQueueMap.get(msgFromProducer.getTopic()));
+    if (topicMap.get(msgFromProducer.getTopic()).size() > Constant.MAX_OFFSET_SIZE) {
+      flushToDisk(topicMap.get(msgFromProducer.getTopic()));
     }
 
     boolean isAckSent = false;
@@ -355,15 +331,16 @@ public class Broker {
    *
    * @param topicList list of topics
    */
-  public void flushToDisk(ConcurrentLinkedQueue<Message> topicList) {
+  public synchronized void flushToDisk(List<MsgInfo.Message> topicList) {
     LOGGER.info("Flushing to disk...");
     Path filePathSave = Path.of(ReplicationAppUtils.getOffsetFile());
-    for (Message msg : topicList) {
+    for (int i = 0; i < topicList.size(); i++) {
+      Message msg = topicList.get(i);
       byte[] msgArr = msg.getData().toByteArray();
       if (!Files.exists(filePathSave)) {
         try {
           Files.write(filePathSave, msgArr);
-          topicList.remove(msg);
+          topicList.remove(i);
         } catch (IOException e) {
           LOGGER.warning("Error while flushing to disk: " + e.getMessage());
         }

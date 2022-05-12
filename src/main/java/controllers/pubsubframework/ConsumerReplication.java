@@ -134,7 +134,7 @@ public class ConsumerReplication {
    * Receive data from Broker
    */
   public void receiveFromBroker() {
-    int msgCount = startingPosition, offsetCount = startingPosition;
+    int offsetCount = startingPosition;
     isRunning = true;
     while (isRunning) {
       byte[] msgByte;
@@ -157,11 +157,9 @@ public class ConsumerReplication {
         if (msgFromBroker != null && msgFromBroker.getTypeValue() == 1) {
           if (msgFromBroker.getTopic().equals(Constant.CLOSE)) {
              startingPosition = offsetCount;
-             //startingPosition = msgCount;
             isRunning = false;
             continue;
           }
-          //msgCount++;
           offsetCount += msgFromBroker.getData().size();
           byte[] data = msgFromBroker.getData().toByteArray();
           LOGGER.info("Received from broker message topic: "
