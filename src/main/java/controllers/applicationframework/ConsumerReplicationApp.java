@@ -30,13 +30,12 @@ public class ConsumerReplicationApp {
    * Run consumer application
    */
   public void runConsumerApplication (ConsumerConfig consumerConfig) {
-
     consumer = new ConsumerReplication(consumerConfig.getLoadBalancerLocation(),
                                        consumerConfig.getTopic(),
                                        consumerConfig.getStartingPosition(),
                                        consumerConfig.getModel());
-
     Thread consumerAppThread = new Thread(new ApplicationWrite());
+    LOGGER.info("Starting consumer app... ");
     consumerAppThread.start();
     try {
       consumerAppThread.join();
@@ -52,7 +51,7 @@ public class ConsumerReplicationApp {
   private class ApplicationWrite implements Runnable{
     @Override
     public void run() {
-      LOGGER.info("Starting consumer app... ");
+      LOGGER.info("Consumer application write... ");
       while (true) {
         LOGGER.info("Polling from blocking queue... ");
         byte[] message = consumer.poll(Duration.ofMillis(Constant.POLL_TIMEOUT));

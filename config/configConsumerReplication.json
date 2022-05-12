@@ -1,1 +1,1 @@
-{"type": "consumer", "id": "1", "loadBalancerLocation": "localhost:1061", "topic" : "product", "startingPosition": "400", "model":"push"}
+{"type": "consumer", "id": "1", "loadBalancerLocation": "localhost:1061", "topic" : "image", "startingPosition": "1", "model":"push"}

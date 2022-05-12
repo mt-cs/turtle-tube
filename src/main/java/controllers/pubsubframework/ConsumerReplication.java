@@ -5,6 +5,9 @@ import controllers.faultinjector.FaultInjectorFactory;
 import controllers.messagingframework.ConnectionHandler;
 import controllers.replicationmodule.ReplicationUtils;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -17,6 +20,7 @@ import model.Membership.MemberInfo;
 import model.MsgInfo.Message;
 import util.BlockingQueue;
 import util.Constant;
+import util.ReplicationAppUtils;
 
 /**
  * Connect and retrieve data from a broker
@@ -197,6 +201,27 @@ public class ConsumerReplication {
               + msgFromBroker.getTopic() + ". Data: " + msgFromBroker.getData().toStringUtf8());
           blockingQueue.put(data);
           LOGGER.info("Data added to blocking queue");
+
+
+          if (model.equals(Constant.PUSH)) {
+            if (data != null) {
+              Path filePathSave = Path.of(ReplicationAppUtils.getOffsetFile());
+              if (!Files.exists(filePathSave)) {
+                try {
+                  Files.write(filePathSave, data);
+                } catch (IOException e) {
+                  LOGGER.warning("Exception during consumer application write: " + e.getMessage());
+                }
+                LOGGER.info("Creating consumer application file path: " + filePathSave);
+              } else {
+                try {
+                  Files.write(filePathSave, data, StandardOpenOption.APPEND);
+                } catch (IOException e) {
+                  LOGGER.warning("Consumer app file write exception: " + e.getMessage());
+                }
+              }
+            }
+          }
         }
       }
     }
