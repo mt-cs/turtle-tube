@@ -98,4 +98,8 @@ public class ReplicationAppUtils {
     return cmdLineParser.getOffsetFile();
   }
 
+  public static String getTopicFile(String topic) {
+    return cmdLineParser.getOffsetHeader() + Constant.UNDERSCORE +  topic + Constant.OFFSET_LOG;
+  }
+
 }

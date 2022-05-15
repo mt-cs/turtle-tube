@@ -50,12 +50,14 @@ public class Constant {
   public static final String VICTORY = "VICTORY";
   public static final String CANDIDATE = "CANDIDATE";
 
+  public static final String OFFSET_LOG = "_offset.log";
   public static final String LOCALHOST = "localhost";
   public static final String LB = "localhost:1061";
   public static final String listener = "Listener ";
   public static final String USER_DIR = "user.dir";
   public static final String SEPARATOR = ":";
   public static final String SLASH = "/";
+  public static final String UNDERSCORE = "_";
   public static final String SPACE = " ";
   public static final byte[] NL = "\n".getBytes(StandardCharsets.UTF_8);
 

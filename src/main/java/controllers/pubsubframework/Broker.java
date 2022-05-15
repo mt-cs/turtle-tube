@@ -183,7 +183,9 @@ public class Broker {
               receiveFromProducer(connection, msg);
             }
           } else if (msg.getTypeValue() == 1) {
+            Path filePathSave = Path.of(ReplicationAppUtils.getTopicFile(msg.getTopic()));
             if (!msg.getIsSnapshot()) {
+
               if (isSyncUp) {
                 // Continue getting replication during sync up
                 LOGGER.info(msg.getMsgId() + " | Sync Up! Received msgInfo replicate from broker: " + msg.getSrcId());
@@ -193,7 +195,7 @@ public class Broker {
                 LOGGER.info(msg.getMsgId() + " | Received msgInfo replicate from broker: " + msg.getSrcId());
                 replicationHandler.storeMsgToTopicMap(msg, topicMap);
                 if (topicMap.get(msg.getTopic()).size() > Constant.MAX_OFFSET_SIZE) {
-                  flushToDisk(topicMap.get(msg.getTopic()));
+                  flushToDisk(topicMap.get(msg.getTopic()), filePathSave);
                 }
               }
             } else {
@@ -209,7 +211,7 @@ public class Broker {
 
                 // flush all to disk
                 for (Map.Entry<String, List<Message>> topic : topicMap.entrySet()) {
-                  flushToDisk(topicMap.get(topic.getKey()));
+                  flushToDisk(topicMap.get(topic.getKey()), filePathSave);
                 }
                 continue;
               }
@@ -235,7 +237,8 @@ public class Broker {
               replicationHandler.sendTopicMap(connection);
             } else {
               // some topic has been flushed to storage
-              sendSnapshotToBrokerFromOffset(connection, currOffsetCount);
+              sendSnapshotToBrokerFromOffset(connection, currOffsetCount,
+                  ReplicationAppUtils.getTopicFile(msg.getTopic()));
             }
           } else if (msg.getTypeValue() == 5) {
             model = Constant.PUSH;
@@ -244,7 +247,8 @@ public class Broker {
             consumerConnection = connection;
             LOGGER.info("Received request from Push-Based customer for message topic/offset: "
                 + msg.getTopic() + "/ " + msg.getStartingPosition());
-            sendToPushBasedConsumer(msg.getStartingPosition(), msg.getTopic(), connection);
+            sendToPushBasedConsumer(msg.getStartingPosition(), msg.getTopic(), connection,
+                ReplicationAppUtils.getTopicFile(msg.getTopic()));
           }
         }
       }
@@ -340,6 +344,7 @@ public class Broker {
    * @param msgFromProducer MsgInfo.Message
    */
   public void receiveFromProducer(ConnectionHandler connection, Message msgFromProducer) {
+    Path filePathSave = Path.of(ReplicationAppUtils.getTopicFile(msgFromProducer.getTopic()));
     if (!topicMap.containsKey(msgFromProducer.getTopic())) {
       List <MsgInfo.Message> msgList = Collections.synchronizedList(new ArrayList<>());
       msgList.add(msgFromProducer);
@@ -352,7 +357,7 @@ public class Broker {
     }
 
     if (topicMap.get(msgFromProducer.getTopic()).size() > Constant.MAX_OFFSET_SIZE) {
-      flushToDisk(topicMap.get(msgFromProducer.getTopic()));
+      flushToDisk(topicMap.get(msgFromProducer.getTopic()), filePathSave);
     }
 
     boolean isAckSent = false;
@@ -370,9 +375,8 @@ public class Broker {
    *
    * @param topicList list of topics
    */
-  public synchronized void flushToDisk(List<MsgInfo.Message> topicList) {
+  public synchronized void flushToDisk(List<MsgInfo.Message> topicList, Path filePathSave) {
     LOGGER.info("Flushing to disk...");
-    Path filePathSave = Path.of(ReplicationAppUtils.getOffsetFile());
     for (int i = 0; i < topicList.size(); i++) {
       Message msg = topicList.get(i);
       byte[] msgArr = msg.getData().toByteArray();
@@ -431,7 +435,7 @@ public class Broker {
     int startingOffset = msg.getStartingPosition();
     int countOffsetSent = 0, offset;
     while (countOffsetSent <= Constant.MAX_BYTES) {
-      byte[] data = getBytes(startingOffset);
+      byte[] data = getBytes(startingOffset, ReplicationAppUtils.getTopicFile(msg.getTopic()));
       offset = data.length;
       startingOffset += offset;
       countOffsetSent += offset;
@@ -453,7 +457,7 @@ public class Broker {
   /**
    * Send snapshot to broker using offset
    */
-  public void sendSnapshotToBrokerFromOffset(ConnectionHandler connection, int currOffset) {
+  public void sendSnapshotToBrokerFromOffset(ConnectionHandler connection, int currOffset, String fileName) {
     if (currOffset == 0) {
       LOGGER.info("Persistent storage is empty");
       return;
@@ -463,7 +467,7 @@ public class Broker {
     boolean isSent;
     while (countOffsetSent < currOffset) {
       LOGGER.info("Snapshot offset count: " + countOffsetSent + "/" + currOffset);
-      byte[] data = getBytes(countOffsetSent);
+      byte[] data = getBytes(countOffsetSent, fileName);
       String log = ByteString.copyFrom(data).toStringUtf8();
       offset = data.length;
       countOffsetSent += offset;
@@ -496,10 +500,10 @@ public class Broker {
    * @param startingOffset starting offset
    * @return byte[] messages for consumer
    */
-  public byte[] getBytes(int startingOffset) {
+  public byte[] getBytes(int startingOffset, String fileName) {
     int nextIdx, byteSize;
     byte[] data = new byte[0];
-    try (InputStream inputStream = new FileInputStream(ReplicationAppUtils.getOffsetFile())) {
+    try (InputStream inputStream = new FileInputStream(fileName)) {
       if (!offsetIndex.contains(startingOffset)) {
         startingOffset = PubSubUtils.getClosestOffset(offsetIndex, startingOffset);
       }
@@ -535,11 +539,11 @@ public class Broker {
    * @param topic          topic
    */
   public void sendToPushBasedConsumer(int startingOffset, String topic,
-      ConnectionHandler connection) {
+      ConnectionHandler connection, String fileName) {
     LOGGER.info("Sending data to push-based consumer: ");
     int countOffsetSent = 0, offset;
-    while (countOffsetSent <= PubSubUtils.getFileSize(ReplicationAppUtils.getOffsetFile())) {
-      byte[] data = getBytes(startingOffset);
+    while (countOffsetSent <= PubSubUtils.getFileSize(fileName)) {
+      byte[] data = getBytes(startingOffset, fileName);
       if (data == null) {
         return;
       }
@@ -572,9 +576,9 @@ public class Broker {
    * @param topic          topic
    */
   public void sendEachMsgToPushBasedConsumer(int startingOffset, String topic,
-      ConnectionHandler connection) {
+      ConnectionHandler connection, String fileName) {
     LOGGER.info("Sending data to push-based consumer: ");
-    byte[] data = getBytes(startingOffset);
+    byte[] data = getBytes(startingOffset, fileName);
     if (data.length == 0) {
       return;
     }
