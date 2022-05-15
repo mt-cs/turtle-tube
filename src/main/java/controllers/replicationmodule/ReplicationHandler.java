@@ -188,7 +188,6 @@ public class ReplicationHandler {
    */
   public boolean sendReplicateToAllBrokers(MsgInfo.Message msg, FaultInjector faultInjector) {
     if (membershipTable.size() == 1) {
-      LOGGER.info(membershipTable.toString());
       LOGGER.info("No follower connection found.");
       return true;
     }
@@ -251,6 +250,19 @@ public class ReplicationHandler {
         .setIsSnapshot(true)
         .build();
     connection.send(msgInfoLast.toByteArray());
+  }
+
+  /**
+   * Merge catchUp snapshot and replication topicMap
+   *
+   * @param topicMapReplication replication map
+   * @param topicMapSnapshot    snapshot map
+   */
+  public synchronized void mergeTopicMap(
+      ConcurrentHashMap<String, List<Message>> topicMapReplication,
+      ConcurrentHashMap<String, List<Message>> topicMapSnapshot) {
+//    copyToTopicMap(topicMapSnapshot);
+    copyToTopicMap(topicMapReplication);
   }
 
   public void copyToTopicMap(ConcurrentHashMap<String, List<Message>> topicMapSnapshot) {

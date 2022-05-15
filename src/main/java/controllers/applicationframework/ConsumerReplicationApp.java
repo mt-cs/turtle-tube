@@ -30,7 +30,6 @@ public class ConsumerReplicationApp {
                                        consumerConfig.getStartingPosition(),
                                        consumerConfig.getModel());
     Thread consumerAppThread = new Thread(new ApplicationWrite());
-    LOGGER.info("Starting consumer app... ");
     consumerAppThread.start();
     try {
       consumerAppThread.join();
@@ -48,7 +47,6 @@ public class ConsumerReplicationApp {
     public void run() {
       LOGGER.info("Consumer application write... ");
       while (true) {
-        LOGGER.info("Consumer application polling from blocking queue... ");
         byte[] message = consumer.poll(Duration.ofMillis(Constant.POLL_TIMEOUT));
         PubSubUtils.flushToFile(message);
       }

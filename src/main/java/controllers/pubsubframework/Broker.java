@@ -62,9 +62,10 @@ public class Broker {
   private ReplicationHandler replicationHandler;
   private FaultInjector faultInjector;
   private final List<Integer> offsetIndex;
+  private final ConcurrentHashMap<Path, List<Integer>> offsetIndexMap;
   private final ConcurrentHashMap<String, List<Message>> topicMap;
   private final ConcurrentHashMap<String, List<Message>> topicMapReplicationSyncUp;
-  private boolean isRunning = true;
+  private volatile boolean isRunning = true;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
   /**
@@ -76,6 +77,7 @@ public class Broker {
     this.port = port;
     this.topicMap = new ConcurrentHashMap<>();
     this.topicMapReplicationSyncUp = new ConcurrentHashMap<>();
+    this.offsetIndexMap = new ConcurrentHashMap<>();
     this.threadPool
         = Executors.newFixedThreadPool(Constant.NUM_THREADS);
     this.offsetCount = 0;
@@ -102,6 +104,7 @@ public class Broker {
     this.isSyncUp = true;
     this.topicMap = new ConcurrentHashMap<>();
     this.topicMapReplicationSyncUp = new ConcurrentHashMap<>();
+    this.offsetIndexMap = new ConcurrentHashMap<>();
     this.offsetCount = 0;
     this.offsetIndex = Collections.synchronizedList(new ArrayList<>());
     this.threadPool = Executors.newFixedThreadPool(Constant.NUM_THREADS);
@@ -239,7 +242,6 @@ public class Broker {
             startingPosRequest = msg.getStartingPosition();
             topicRequest = msg.getTopic();
             consumerConnection = connection;
-
             LOGGER.info("Received request from Push-Based customer for message topic/offset: "
                 + msg.getTopic() + "/ " + msg.getStartingPosition());
             sendToPushBasedConsumer(msg.getStartingPosition(), msg.getTopic(), connection);
@@ -377,7 +379,7 @@ public class Broker {
       if (!Files.exists(filePathSave)) {
         try {
           Files.write(filePathSave, msgArr);
-          incrementOffset(msg);
+          incrementOffset(msg, filePathSave);
           topicList.remove(i);
         } catch (IOException e) {
           LOGGER.warning("Error while flushing to disk: " + e.getMessage());
@@ -385,7 +387,7 @@ public class Broker {
       } else {
         try {
           Files.write(filePathSave, msgArr, StandardOpenOption.APPEND);
-          incrementOffset(msg);
+          incrementOffset(msg, filePathSave);
           topicList.remove(i);
         } catch (IOException e) {
           LOGGER.warning("Error while flushing to disk: " + e.getMessage());
@@ -402,7 +404,19 @@ public class Broker {
     }
   }
 
-  private void incrementOffset(Message msg) {
+  private void incrementOffset(Message msg, Path filePath) {
+    int currOffset;
+    if (!offsetIndexMap.containsKey(filePath)) {
+      List <Integer> offsetIndexList = Collections.synchronizedList(new ArrayList<>());
+      currOffset = msg.getOffset();
+      offsetIndexList.add(currOffset);
+    } else {
+      List <Integer> offsetIndexList = offsetIndexMap.get(filePath);
+      currOffset = offsetIndexList.get(offsetIndexList.size() - 1) + msg.getOffset();
+      offsetIndexMap.get(filePath).add(currOffset);
+    }
+    LOGGER.info("Add offset: " + currOffset + " to: " + filePath);
+
     offsetIndex.add(offsetCount);
     LOGGER.info("Offset count: " + offsetCount);
     offsetCount += msg.getOffset();
@@ -492,6 +506,7 @@ public class Broker {
       nextIdx = offsetIndex.indexOf(startingOffset) + 1;
       if (nextIdx >= offsetIndex.size()) {
         LOGGER.warning("End of file...");
+        return null;
       }
       byteSize = offsetIndex.get(nextIdx) - startingOffset;
       data = new byte[byteSize];
@@ -525,6 +540,9 @@ public class Broker {
     int countOffsetSent = 0, offset;
     while (countOffsetSent <= PubSubUtils.getFileSize(ReplicationAppUtils.getOffsetFile())) {
       byte[] data = getBytes(startingOffset);
+      if (data == null) {
+        return;
+      }
       offset = data.length;
       if (offset == 0) {
         return;
