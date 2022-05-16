@@ -134,6 +134,40 @@ public final class Membership {
      * @return The version.
      */
     int getVersion();
+
+    /**
+     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     */
+    int getReplicationTableCount();
+    /**
+     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     */
+    boolean containsReplicationTable(
+        java.lang.String key);
+    /**
+     * Use {@link #getReplicationTableMap()} instead.
+     */
+    @java.lang.Deprecated
+    java.util.Map<java.lang.String, model.Membership.BrokerInfo>
+    getReplicationTable();
+    /**
+     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     */
+    java.util.Map<java.lang.String, model.Membership.BrokerInfo>
+    getReplicationTableMap();
+    /**
+     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     */
+
+    model.Membership.BrokerInfo getReplicationTableOrDefault(
+        java.lang.String key,
+        model.Membership.BrokerInfo defaultValue);
+    /**
+     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     */
+
+    model.Membership.BrokerInfo getReplicationTableOrThrow(
+        java.lang.String key);
   }
   /**
    * Protobuf type {@code MemberInfo}
@@ -252,6 +286,19 @@ public final class Membership {
               version_ = input.readInt32();
               break;
             }
+            case 98: {
+              if (!((mutable_bitField0_ & 0x00000002) != 0)) {
+                replicationTable_ = com.google.protobuf.MapField.newMapField(
+                    ReplicationTableDefaultEntryHolder.defaultEntry);
+                mutable_bitField0_ |= 0x00000002;
+              }
+              com.google.protobuf.MapEntry<java.lang.String, model.Membership.BrokerInfo>
+              replicationTable__ = input.readMessage(
+                  ReplicationTableDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
+              replicationTable_.getMutableMap().put(
+                  replicationTable__.getKey(), replicationTable__.getValue());
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -283,6 +330,8 @@ public final class Membership {
       switch (number) {
         case 10:
           return internalGetMembershipTable();
+        case 12:
+          return internalGetReplicationTable();
         default:
           throw new RuntimeException(
               "Invalid map field number: " + number);
@@ -711,6 +760,87 @@ public final class Membership {
       return version_;
     }
 
+    public static final int REPLICATIONTABLE_FIELD_NUMBER = 12;
+    private static final class ReplicationTableDefaultEntryHolder {
+      static final com.google.protobuf.MapEntry<
+          java.lang.String, model.Membership.BrokerInfo> defaultEntry =
+              com.google.protobuf.MapEntry
+              .<java.lang.String, model.Membership.BrokerInfo>newDefaultInstance(
+                  model.Membership.internal_static_MemberInfo_ReplicationTableEntry_descriptor, 
+                  com.google.protobuf.WireFormat.FieldType.STRING,
+                  "",
+                  com.google.protobuf.WireFormat.FieldType.MESSAGE,
+                  model.Membership.BrokerInfo.getDefaultInstance());
+    }
+    private com.google.protobuf.MapField<
+        java.lang.String, model.Membership.BrokerInfo> replicationTable_;
+    private com.google.protobuf.MapField<java.lang.String, model.Membership.BrokerInfo>
+    internalGetReplicationTable() {
+      if (replicationTable_ == null) {
+        return com.google.protobuf.MapField.emptyMapField(
+            ReplicationTableDefaultEntryHolder.defaultEntry);
+      }
+      return replicationTable_;
+    }
+
+    public int getReplicationTableCount() {
+      return internalGetReplicationTable().getMap().size();
+    }
+    /**
+     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     */
+
+    @java.lang.Override
+    public boolean containsReplicationTable(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      return internalGetReplicationTable().getMap().containsKey(key);
+    }
+    /**
+     * Use {@link #getReplicationTableMap()} instead.
+     */
+    @java.lang.Override
+    @java.lang.Deprecated
+    public java.util.Map<java.lang.String, model.Membership.BrokerInfo> getReplicationTable() {
+      return getReplicationTableMap();
+    }
+    /**
+     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     */
+    @java.lang.Override
+
+    public java.util.Map<java.lang.String, model.Membership.BrokerInfo> getReplicationTableMap() {
+      return internalGetReplicationTable().getMap();
+    }
+    /**
+     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     */
+    @java.lang.Override
+
+    public model.Membership.BrokerInfo getReplicationTableOrDefault(
+        java.lang.String key,
+        model.Membership.BrokerInfo defaultValue) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, model.Membership.BrokerInfo> map =
+          internalGetReplicationTable().getMap();
+      return map.containsKey(key) ? map.get(key) : defaultValue;
+    }
+    /**
+     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     */
+    @java.lang.Override
+
+    public model.Membership.BrokerInfo getReplicationTableOrThrow(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, model.Membership.BrokerInfo> map =
+          internalGetReplicationTable().getMap();
+      if (!map.containsKey(key)) {
+        throw new java.lang.IllegalArgumentException();
+      }
+      return map.get(key);
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -761,6 +891,12 @@ public final class Membership {
       if (version_ != 0) {
         output.writeInt32(11, version_);
       }
+      com.google.protobuf.GeneratedMessageV3
+        .serializeStringMapTo(
+          output,
+          internalGetReplicationTable(),
+          ReplicationTableDefaultEntryHolder.defaultEntry,
+          12);
       unknownFields.writeTo(output);
     }
 
@@ -817,6 +953,16 @@ public final class Membership {
         size += com.google.protobuf.CodedOutputStream
           .computeInt32Size(11, version_);
       }
+      for (java.util.Map.Entry<java.lang.String, model.Membership.BrokerInfo> entry
+           : internalGetReplicationTable().getMap().entrySet()) {
+        com.google.protobuf.MapEntry<java.lang.String, model.Membership.BrokerInfo>
+        replicationTable__ = ReplicationTableDefaultEntryHolder.defaultEntry.newBuilderForType()
+            .setKey(entry.getKey())
+            .setValue(entry.getValue())
+            .build();
+        size += com.google.protobuf.CodedOutputStream
+            .computeMessageSize(12, replicationTable__);
+      }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
       return size;
@@ -853,6 +999,8 @@ public final class Membership {
           other.internalGetMembershipTable())) return false;
       if (getVersion()
           != other.getVersion()) return false;
+      if (!internalGetReplicationTable().equals(
+          other.internalGetReplicationTable())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -890,6 +1038,10 @@ public final class Membership {
       }
       hash = (37 * hash) + VERSION_FIELD_NUMBER;
       hash = (53 * hash) + getVersion();
+      if (!internalGetReplicationTable().getMap().isEmpty()) {
+        hash = (37 * hash) + REPLICATIONTABLE_FIELD_NUMBER;
+        hash = (53 * hash) + internalGetReplicationTable().hashCode();
+      }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
       return hash;
@@ -1003,6 +1155,8 @@ public final class Membership {
         switch (number) {
           case 10:
             return internalGetMembershipTable();
+          case 12:
+            return internalGetReplicationTable();
           default:
             throw new RuntimeException(
                 "Invalid map field number: " + number);
@@ -1014,6 +1168,8 @@ public final class Membership {
         switch (number) {
           case 10:
             return internalGetMutableMembershipTable();
+          case 12:
+            return internalGetMutableReplicationTable();
           default:
             throw new RuntimeException(
                 "Invalid map field number: " + number);
@@ -1066,6 +1222,7 @@ public final class Membership {
         internalGetMutableMembershipTable().clear();
         version_ = 0;
 
+        internalGetMutableReplicationTable().clear();
         return this;
       }
 
@@ -1105,6 +1262,8 @@ public final class Membership {
         result.membershipTable_ = internalGetMembershipTable();
         result.membershipTable_.makeImmutable();
         result.version_ = version_;
+        result.replicationTable_ = internalGetReplicationTable();
+        result.replicationTable_.makeImmutable();
         onBuilt();
         return result;
       }
@@ -1188,6 +1347,8 @@ public final class Membership {
         if (other.getVersion() != 0) {
           setVersion(other.getVersion());
         }
+        internalGetMutableReplicationTable().mergeFrom(
+            other.internalGetReplicationTable());
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
         return this;
@@ -1814,6 +1975,137 @@ public final class Membership {
         
         version_ = 0;
         onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.MapField<
+          java.lang.String, model.Membership.BrokerInfo> replicationTable_;
+      private com.google.protobuf.MapField<java.lang.String, model.Membership.BrokerInfo>
+      internalGetReplicationTable() {
+        if (replicationTable_ == null) {
+          return com.google.protobuf.MapField.emptyMapField(
+              ReplicationTableDefaultEntryHolder.defaultEntry);
+        }
+        return replicationTable_;
+      }
+      private com.google.protobuf.MapField<java.lang.String, model.Membership.BrokerInfo>
+      internalGetMutableReplicationTable() {
+        onChanged();;
+        if (replicationTable_ == null) {
+          replicationTable_ = com.google.protobuf.MapField.newMapField(
+              ReplicationTableDefaultEntryHolder.defaultEntry);
+        }
+        if (!replicationTable_.isMutable()) {
+          replicationTable_ = replicationTable_.copy();
+        }
+        return replicationTable_;
+      }
+
+      public int getReplicationTableCount() {
+        return internalGetReplicationTable().getMap().size();
+      }
+      /**
+       * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+       */
+
+      @java.lang.Override
+      public boolean containsReplicationTable(
+          java.lang.String key) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        return internalGetReplicationTable().getMap().containsKey(key);
+      }
+      /**
+       * Use {@link #getReplicationTableMap()} instead.
+       */
+      @java.lang.Override
+      @java.lang.Deprecated
+      public java.util.Map<java.lang.String, model.Membership.BrokerInfo> getReplicationTable() {
+        return getReplicationTableMap();
+      }
+      /**
+       * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+       */
+      @java.lang.Override
+
+      public java.util.Map<java.lang.String, model.Membership.BrokerInfo> getReplicationTableMap() {
+        return internalGetReplicationTable().getMap();
+      }
+      /**
+       * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+       */
+      @java.lang.Override
+
+      public model.Membership.BrokerInfo getReplicationTableOrDefault(
+          java.lang.String key,
+          model.Membership.BrokerInfo defaultValue) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        java.util.Map<java.lang.String, model.Membership.BrokerInfo> map =
+            internalGetReplicationTable().getMap();
+        return map.containsKey(key) ? map.get(key) : defaultValue;
+      }
+      /**
+       * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+       */
+      @java.lang.Override
+
+      public model.Membership.BrokerInfo getReplicationTableOrThrow(
+          java.lang.String key) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        java.util.Map<java.lang.String, model.Membership.BrokerInfo> map =
+            internalGetReplicationTable().getMap();
+        if (!map.containsKey(key)) {
+          throw new java.lang.IllegalArgumentException();
+        }
+        return map.get(key);
+      }
+
+      public Builder clearReplicationTable() {
+        internalGetMutableReplicationTable().getMutableMap()
+            .clear();
+        return this;
+      }
+      /**
+       * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+       */
+
+      public Builder removeReplicationTable(
+          java.lang.String key) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        internalGetMutableReplicationTable().getMutableMap()
+            .remove(key);
+        return this;
+      }
+      /**
+       * Use alternate mutation accessors instead.
+       */
+      @java.lang.Deprecated
+      public java.util.Map<java.lang.String, model.Membership.BrokerInfo>
+      getMutableReplicationTable() {
+        return internalGetMutableReplicationTable().getMutableMap();
+      }
+      /**
+       * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+       */
+      public Builder putReplicationTable(
+          java.lang.String key,
+          model.Membership.BrokerInfo value) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        if (value == null) {
+  throw new NullPointerException("map value");
+}
+
+        internalGetMutableReplicationTable().getMutableMap()
+            .put(key, value);
+        return this;
+      }
+      /**
+       * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+       */
+
+      public Builder putAllReplicationTable(
+          java.util.Map<java.lang.String, model.Membership.BrokerInfo> values) {
+        internalGetMutableReplicationTable().getMutableMap()
+            .putAll(values);
         return this;
       }
       @java.lang.Override
@@ -2870,6 +3162,11 @@ public final class Membership {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_MemberInfo_MembershipTableEntry_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_MemberInfo_ReplicationTableEntry_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_MemberInfo_ReplicationTableEntry_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_BrokerInfo_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -2883,21 +3180,25 @@ public final class Membership {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\027protos/membership.proto\"\236\003\n\nMemberInfo" +
+      "\n\027protos/membership.proto\"\241\004\n\nMemberInfo" +
       "\022\014\n\004host\030\001 \001(\t\022\014\n\004port\030\002 \001(\005\022\n\n\002id\030\003 \001(\005" +
       "\022\020\n\010isLeader\030\004 \001(\010\022\r\n\005state\030\005 \001(\t\022\022\n\nlea" +
       "derHost\030\006 \001(\t\022\022\n\nleaderPort\030\007 \001(\005\022\017\n\007isA" +
       "live\030\010 \001(\010\022!\n\004type\030\t \001(\0162\023.MemberInfo.sr" +
       "cType\0229\n\017membershipTable\030\n \003(\0132 .MemberI" +
       "nfo.MembershipTableEntry\022\017\n\007version\030\013 \001(" +
-      "\005\032C\n\024MembershipTableEntry\022\013\n\003key\030\001 \001(\005\022\032" +
-      "\n\005value\030\002 \001(\0132\013.BrokerInfo:\0028\001\"Z\n\007srcTyp" +
-      "e\022\014\n\010PRODUCER\020\000\022\n\n\006BROKER\020\001\022\014\n\010CONSUMER\020" +
-      "\002\022\020\n\014LOADBALANCER\020\003\022\025\n\021CONSUMER_FOLLOWER" +
-      "\020\004\"|\n\nBrokerInfo\022\014\n\004host\030\001 \001(\t\022\014\n\004port\030\002" +
-      " \001(\005\022\022\n\nleaderPort\030\003 \001(\005\022\n\n\002id\030\004 \001(\005\022\017\n\007" +
-      "version\030\005 \001(\005\022\017\n\007isAlive\030\006 \001(\010\022\020\n\010isLead" +
-      "er\030\007 \001(\010B\023\n\005modelB\nMembershipb\006proto3"
+      "\005\022;\n\020replicationTable\030\014 \003(\0132!.MemberInfo" +
+      ".ReplicationTableEntry\032C\n\024MembershipTabl" +
+      "eEntry\022\013\n\003key\030\001 \001(\005\022\032\n\005value\030\002 \001(\0132\013.Bro" +
+      "kerInfo:\0028\001\032D\n\025ReplicationTableEntry\022\013\n\003" +
+      "key\030\001 \001(\t\022\032\n\005value\030\002 \001(\0132\013.BrokerInfo:\0028" +
+      "\001\"Z\n\007srcType\022\014\n\010PRODUCER\020\000\022\n\n\006BROKER\020\001\022\014" +
+      "\n\010CONSUMER\020\002\022\020\n\014LOADBALANCER\020\003\022\025\n\021CONSUM" +
+      "ER_FOLLOWER\020\004\"|\n\nBrokerInfo\022\014\n\004host\030\001 \001(" +
+      "\t\022\014\n\004port\030\002 \001(\005\022\022\n\nleaderPort\030\003 \001(\005\022\n\n\002i" +
+      "d\030\004 \001(\005\022\017\n\007version\030\005 \001(\005\022\017\n\007isAlive\030\006 \001(" +
+      "\010\022\020\n\010isLeader\030\007 \001(\010B\023\n\005modelB\nMembership" +
+      "b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -2908,12 +3209,18 @@ public final class Membership {
     internal_static_MemberInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_MemberInfo_descriptor,
-        new java.lang.String[] { "Host", "Port", "Id", "IsLeader", "State", "LeaderHost", "LeaderPort", "IsAlive", "Type", "MembershipTable", "Version", });
+        new java.lang.String[] { "Host", "Port", "Id", "IsLeader", "State", "LeaderHost", "LeaderPort", "IsAlive", "Type", "MembershipTable", "Version", "ReplicationTable", });
     internal_static_MemberInfo_MembershipTableEntry_descriptor =
       internal_static_MemberInfo_descriptor.getNestedTypes().get(0);
     internal_static_MemberInfo_MembershipTableEntry_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_MemberInfo_MembershipTableEntry_descriptor,
+        new java.lang.String[] { "Key", "Value", });
+    internal_static_MemberInfo_ReplicationTableEntry_descriptor =
+      internal_static_MemberInfo_descriptor.getNestedTypes().get(1);
+    internal_static_MemberInfo_ReplicationTableEntry_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_MemberInfo_ReplicationTableEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_BrokerInfo_descriptor =
       getDescriptor().getMessageTypes().get(1);

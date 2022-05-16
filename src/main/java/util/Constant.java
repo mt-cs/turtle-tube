@@ -21,16 +21,12 @@ public class Constant {
   public static final int MAX_BOUND = 3;
   public static final int SECOND = 1000000;
   public static final int RT = 3000;
+  public static final int RF = 2;
   public static final int LB_PORT = 1061;
   public static final double LOSS_RT = 0.2;
 
-
   public static final String TYPE_FLAG = "-type";
-  public static final String LOG_FLAG = "-log";
   public static final String CONFIG_FLAG = "-config";
-  public static final String LOCATION_FLAG = "-location";
-  public static final String FILE_FLAG = "-file";
-  public static final int ARGS_LENGTH = 7;
   public static final int CONFIG_LENGTH = 6;
 
   public static final String PRODUCER = "producer";

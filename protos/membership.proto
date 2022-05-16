@@ -19,6 +19,7 @@ message MemberInfo {
   srcType type = 9;
   map<int32, BrokerInfo> membershipTable = 10;
   int32 version = 11;
+  map<string, BrokerInfo> replicationTable = 12;
 
   enum srcType {
     PRODUCER = 0;
