@@ -414,6 +414,7 @@ public class Broker {
     offsetVersionCount += msg.getOffset();
     if (!offsetIndexMap.containsKey(filePath)) {
       List <Integer> offsetIndexList = Collections.synchronizedList(new ArrayList<>());
+      offsetIndexList.add(0);
       currOffset = msg.getOffset();
       offsetIndexList.add(currOffset);
       offsetIndexMap.put(filePath, offsetIndexList);
@@ -465,24 +466,12 @@ public class Broker {
       // flush All to Disk
       return;
     }
-    // Copy all current topic files
-    LOGGER.info("SNAPSHOT MODE!");
+    // Copy all current topic files snapshot
     ConcurrentHashMap<Path, List<Integer>> offsetIndexMapCopy = new ConcurrentHashMap<>();
-
-    for (Map.Entry<Path, List<Integer>> filePath : offsetIndexMap.entrySet()) {
-      LOGGER.info("COPYING PATH: " + filePath.getKey());
-      LOGGER.info("LIST SIZE: " + offsetIndexMap.get(filePath.getKey()).size());
-    }
-
     for (Path filePath : offsetIndexMap.keySet()) {
-      LOGGER.info("copying...." + filePath);
       ReplicationUtils.copyTopicFiles(filePath);
       offsetIndexMapCopy.putIfAbsent(ReplicationUtils.copyTopicFiles(filePath),
           new CopyOnWriteArrayList<>(offsetIndexMap.get(filePath)));
-    }
-
-    for (Path filePath : offsetIndexMapCopy.keySet()) {
-      LOGGER.info("COPY PATH: " + filePath);
     }
 
     LOGGER.info("Sending snapshot... Broker version offset: " + offsetVersionCount);
@@ -490,7 +479,6 @@ public class Broker {
     boolean isSent;
 
     for(Path filePath : offsetIndexMapCopy.keySet()) {
-      LOGGER.info("Sending snapshot for : " + filePath);
       while (countOffsetSent <= PubSubUtils.getFileSize(filePath)) {
 
         byte[] data = getBytes(countOffsetSent, filePath.getFileName().toString(),
@@ -513,7 +501,7 @@ public class Broker {
         }
         isSent = connection.send(msgInfo.toByteArray());
         if (isSent) {
-          LOGGER.info(id++ + " | Sent snapshot of: " + ByteString.copyFrom(data));
+          LOGGER.info(id++ + " | Sent snapshot of: " + new String(data));
         } else {
           LOGGER.warning("Sent failed for msgId: " + id++);
         }

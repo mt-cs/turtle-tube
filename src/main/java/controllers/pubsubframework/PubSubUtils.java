@@ -59,7 +59,6 @@ public class PubSubUtils {
   public static long getFileSize(Path filePath) {
     try {
       long size = Files.size(filePath);
-      LOGGER.info(filePath + " size: " + size);
       return size;
     } catch (IOException e) {
       e.printStackTrace();
