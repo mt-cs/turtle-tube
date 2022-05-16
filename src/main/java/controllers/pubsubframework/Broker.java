@@ -53,6 +53,7 @@ public class Broker {
 
   private volatile boolean isLeader;
   private volatile boolean isSyncUp;
+  private volatile boolean isSnapshot;
   private ConnectionHandler leaderConnection;
   private MembershipTable membershipTable;
   private HeartBeatScheduler heartBeatScheduler;
@@ -98,6 +99,7 @@ public class Broker {
     this.brokerId = brokerId;
     this.isLeader = isLeader;
     this.isSyncUp = true;
+    this.isSnapshot = false;
     this.topicMap = new ConcurrentHashMap<>();
     this.topicMapReplicationSyncUp = new ConcurrentHashMap<>();
     this.offsetIndexMap = new ConcurrentHashMap<>();
@@ -267,11 +269,6 @@ public class Broker {
             heartBeatScheduler.handleHeartBeatRequest(memberInfo.getId());
           } else if (memberInfo.getState().equals(Constant.CONNECT))  {
             MembershipUtils.addToMembershipTable(connection, memberInfo, membershipTable);
-            if (memberInfo.getIsLeader()) {
-              this.leaderConnection = connection;
-              replicationHandler.sendSnapshotRequest(leaderConnection, brokerLocation);
-              threadPool.execute(() -> receiveMsg(leaderConnection, true));
-            }
 //            LOGGER.info(membershipTable.toString());
           } else if (memberInfo.getState().equals(Constant.ELECTION)) {
             bullyElection.handleElectionRequest(connection, memberInfo.getId());
@@ -326,7 +323,9 @@ public class Broker {
         targetLeaderBasedConnection, membershipTable, connectionToPeer);
     threadPool.execute(() -> receiveFromBroker(connectionToPeer));
 
-    if (membershipTable.get(targetId).isLeader()) {
+    if (!isSnapshot && membershipTable.get(targetId).isLeader()) {
+      isSnapshot = true;
+      LOGGER.info("Leader location: " + targetLeaderBasedConnection);
       this.leaderConnection = PubSubUtils.connectToBroker(targetBrokerLocation, faultInjector);
       replicationHandler.sendSnapshotRequest(leaderConnection, targetBrokerLocation);
       threadPool.execute(() -> receiveMsg(leaderConnection, true));
@@ -652,7 +651,9 @@ public class Broker {
         connectToPeer(PubSubUtils.getBrokerLocation(protoInfo.getHost(),
             protoInfo.getPort()), leaderBasedLocation, protoInfo.getId());
 
-        if (protoInfo.getIsLeader()) {
+        if (!isSnapshot && protoInfo.getIsLeader()) {
+          isSnapshot = true;
+          LOGGER.info("Leader location: " + leaderBasedLocation);
           this.leaderConnection = PubSubUtils.connectToBroker(leaderBasedLocation, faultInjector);
           replicationHandler.sendSnapshotRequest(leaderConnection, leaderBasedLocation);
           threadPool.execute(() -> receiveMsg(leaderConnection, true));

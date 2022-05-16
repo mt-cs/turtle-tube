@@ -84,8 +84,8 @@ public class BullyElectionManager {
     handleVictoryRequest(currBrokerId);
     LOGGER.info(membershipTable.toString());
     sendVictoryMsgToHigherIds();
-    MembershipUtils.sendLeaderLocation(loadBalancerConnection,
-        currBrokerId, pubSubHost, pubSubPort);
+    MembershipUtils.sendBrokerLocation(loadBalancerConnection,
+        currBrokerId, pubSubHost, pubSubPort, isLeaderSelected);
   }
 
   /**

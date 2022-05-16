@@ -73,22 +73,22 @@ public class MembershipUtils {
     LOGGER.info("Added to membership table: " + brokerInfo.getLeaderBasedLocation());
   }
 
-  /**
-   * Helper method to send currentLeader address
-   */
-  public static void sendLeaderLocation(ConnectionHandler connection, int leaderId,
-      String leaderHost, int leaderPort) {
-    MemberInfo leaderInfo = MemberInfo.newBuilder()
-        .setTypeValue(1)
-        .setHost(leaderHost)
-        .setPort(leaderPort)
-        .setId(leaderId)
-        .build();
-    LOGGER.info("Sent leader info: " +
-        PubSubUtils.getBrokerLocation(leaderHost, leaderPort));
-
-    connection.send(leaderInfo.toByteArray());
-  }
+//  /**
+//   * Helper method to send currentLeader address
+//   */
+//  public static void sendLeaderLocation(ConnectionHandler connection, int leaderId,
+//      String leaderHost, int leaderPort) {
+//    MemberInfo leaderInfo = MemberInfo.newBuilder()
+//        .setTypeValue(1)
+//        .setHost(leaderHost)
+//        .setPort(leaderPort)
+//        .setId(leaderId)
+//        .build();
+//    LOGGER.info("Sent leader info: " +
+//        PubSubUtils.getBrokerLocation(leaderHost, leaderPort));
+//
+//    connection.send(leaderInfo.toByteArray());
+//  }
 
   /**
    * Helper method to send broker address

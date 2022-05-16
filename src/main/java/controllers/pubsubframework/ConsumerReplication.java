@@ -32,9 +32,10 @@ public class ConsumerReplication {
   private final BlockingQueue<byte[]> blockingQueue;
   private final String topic;
   private final String model;
+  private final String read;
   private int startingPosition;
   private volatile boolean isRunning;
-  private volatile boolean isElecting;
+  private volatile boolean isUpdatingMembership;
   private ExecutorService executor;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
@@ -53,10 +54,12 @@ public class ConsumerReplication {
     this.followerLocation = "";
     this.topic = topic;
     this.model = model;
+    this.read = read;
     this.startingPosition = startingPosition;
     this.isRunning = true;
-    this.isElecting = false;
+    this.isUpdatingMembership = false;
     connectToLoadBalancer();
+
     if (read.equals(Constant.LEADER)) {
       getLeaderAddress();
       connectToBroker(leaderLocation);
@@ -152,11 +155,16 @@ public class ConsumerReplication {
     public void run() {
       sendRequestToBroker(topic, startingPosition);
       LOGGER.info("Fetching from broker " + leaderLocation + "...");
-      if (isElecting) {
+      if (isUpdatingMembership) {
         PubSubUtils.wait(30000);
-        leaderLocation = getLeaderAddress();
-        connectToBroker(leaderLocation);
-        isElecting = false;
+        if (read.equals(Constant.LEADER)) {
+          leaderLocation = getLeaderAddress();
+          connectToBroker(leaderLocation);
+        } else if (read.equals(Constant.FOLLOWER)) {
+          followerLocation = getFollowerAddress();
+          connectToBroker(followerLocation);
+        }
+        isUpdatingMembership = false;
       }
     }
   }
@@ -174,7 +182,7 @@ public class ConsumerReplication {
       } catch (IOException ioe) {
         LOGGER.warning("IOException in consumer receive Msg: " + ioe.getMessage());
         connection.close();
-        isElecting = true;
+        isUpdatingMembership = true;
         break;
       }
 

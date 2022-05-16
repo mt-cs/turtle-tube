@@ -92,8 +92,8 @@ public class LoadBalancer {
                 reentrantLock.unlock();
                 LOGGER.info("Current leader: " + leaderId);
                 isLeaderSelected = true;
-                MembershipUtils.sendLeaderLocation(connection,
-                    leaderId, leaderHost, leaderPort);
+                MembershipUtils.sendBrokerLocation(connection,
+                    leaderId, leaderHost, leaderPort, isLeaderSelected);
               } else {
                 followerQueue.add(requestInfo);
                 LOGGER.info("Added member to queue: " + requestInfo.getPort());
@@ -106,8 +106,8 @@ public class LoadBalancer {
                   followerInfo.getPort(), followerInfo.getIsLeader());
             } else {
               if (isLeaderSelected) {
-                MembershipUtils.sendLeaderLocation(connection,
-                    leaderId, leaderHost, leaderPort);
+                MembershipUtils.sendBrokerLocation(connection,
+                    leaderId, leaderHost, leaderPort, isLeaderSelected);
               }
             }
           }
