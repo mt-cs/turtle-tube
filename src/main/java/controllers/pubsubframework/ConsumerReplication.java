@@ -299,11 +299,4 @@ public class ConsumerReplication {
     return leaderLocation;
   }
 
-  /**
-   * Close connection to broker
-   */
-  public void close() {
-    connection.close();
-  }
-
 }

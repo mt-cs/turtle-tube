@@ -16,6 +16,7 @@ import model.Membership;
 public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccount>> {
   private final ConcurrentMap<Integer, MemberAccount> membershipMap;
   private final ConcurrentMap<Integer, Membership.BrokerInfo> protoMap;
+  private final ConcurrentMap<String, Membership.BrokerInfo> replicationMap;
   private volatile boolean isFailure;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
@@ -25,6 +26,7 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
   public MembershipTable() {
     this.membershipMap = new ConcurrentHashMap<>();
     this.protoMap = new ConcurrentHashMap<>();
+    this.replicationMap = new ConcurrentHashMap<>();
   }
 
   @Override
