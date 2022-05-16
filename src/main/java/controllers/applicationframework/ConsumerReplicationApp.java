@@ -20,7 +20,6 @@ public class ConsumerReplicationApp {
   private static final Logger LOGGER
       = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
-
   /**
    * Run consumer application
    */
@@ -30,12 +29,15 @@ public class ConsumerReplicationApp {
                                        consumerConfig.getStartingPosition(),
                                        consumerConfig.getModel(),
                                        consumerConfig.getRead());
-    Thread consumerAppThread = new Thread(new ApplicationWrite());
-    consumerAppThread.start();
-    try {
-      consumerAppThread.join();
-    } catch (InterruptedException e) {
-      LOGGER.warning("Consumer app file thread join error: " + e.getMessage());
+
+    if (consumerConfig.getModel().equals(Constant.PULL)) {
+      Thread consumerAppThread = new Thread(new ApplicationWrite());
+      consumerAppThread.start();
+      try {
+        consumerAppThread.join();
+      } catch (InterruptedException e) {
+        LOGGER.warning("Consumer app file thread join error: " + e.getMessage());
+      }
     }
   }
 

@@ -156,8 +156,9 @@ public class ConsumerReplication {
       sendRequestToBroker(topic, startingPosition);
       LOGGER.info("Fetching from broker " + leaderLocation + "...");
       if (isUpdatingMembership) {
-        PubSubUtils.wait(30000);
+        LOGGER.info("Reconnecting...");
         if (read.equals(Constant.LEADER)) {
+          PubSubUtils.wait(30000);
           leaderLocation = getLeaderAddress();
           connectToBroker(leaderLocation);
         } else if (read.equals(Constant.FOLLOWER)) {
@@ -183,6 +184,8 @@ public class ConsumerReplication {
         LOGGER.warning("IOException in consumer receive Msg: " + ioe.getMessage());
         connection.close();
         isUpdatingMembership = true;
+        LOGGER.info("Reconnecting...");
+        reconnectPushBasedConsumer();
         break;
       }
 
@@ -196,10 +199,12 @@ public class ConsumerReplication {
         if (msgFromBroker != null && msgFromBroker.getTypeValue() == 1) {
           if (msgFromBroker.getTopic().equals(Constant.CLOSE)) {
              startingPosition = offsetCount;
-            isRunning = false;
-            continue;
+             LOGGER.info("Current starting offset: " + startingPosition);
+             isRunning = false;
+             continue;
           }
           offsetCount += msgFromBroker.getData().size();
+          startingPosition += msgFromBroker.getData().size();
           byte[] data = msgFromBroker.getData().toByteArray();
           LOGGER.info("Received from broker message topic: "
               + msgFromBroker.getTopic() + ". Data: " + msgFromBroker.getData().toStringUtf8());
@@ -213,6 +218,23 @@ public class ConsumerReplication {
     }
   }
 
+  private void reconnectPushBasedConsumer() {
+    if (model.equals(Constant.PUSH)) {
+      if (read.equals(Constant.LEADER)) {
+        PubSubUtils.wait(30000);
+        leaderLocation = getLeaderAddress();
+        if(!leaderLocation.equals("")) {
+          connectToBroker(leaderLocation);
+        }
+      } else if (read.equals(Constant.FOLLOWER)) {
+        followerLocation = getFollowerAddress();
+        connectToBroker(followerLocation);
+      }
+      isUpdatingMembership = false;
+      sendRequestToBroker(topic, startingPosition);
+    }
+  }
+
   /**
    * Get leader pubsub location
    */
@@ -221,6 +243,7 @@ public class ConsumerReplication {
         .setTypeValue(4)
         .build();
     loadBalancerConnection.send(followerAddressRequest.toByteArray());
+    LOGGER.info("Sending follower address request...");
 
     FutureTask<MemberInfo> future = new FutureTask<>(() ->
         MemberInfo.parseFrom(loadBalancerConnection.receive()));
