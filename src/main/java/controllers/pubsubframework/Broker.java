@@ -51,11 +51,6 @@ public class Broker {
   private int brokerId;
   private int offsetVersionCount;
 
-  private int startingPosRequest;
-  private String topicRequest;
-  private ConnectionHandler consumerConnection;
-  private volatile boolean isFlushed;
-
   private volatile boolean isLeader;
   private volatile boolean isSyncUp;
   private ConnectionHandler leaderConnection;
@@ -239,9 +234,6 @@ public class Broker {
             sendSnapshotToBrokerFromOffset(connection, msg.getSrcId());
           } else if (msg.getTypeValue() == 5) {
             model = Constant.PUSH;
-            startingPosRequest = msg.getStartingPosition();
-            topicRequest = msg.getTopic();
-            consumerConnection = connection;
             LOGGER.info("Received request from Push-Based customer for message topic/offset: "
                 + msg.getTopic() + "/ " + msg.getStartingPosition());
             sendToPushBasedConsumer(msg.getStartingPosition(), msg.getTopic(), connection,
@@ -399,14 +391,6 @@ public class Broker {
           LOGGER.warning("Error while flushing to disk: " + e.getMessage());
         }
       }
-
-//      if (model != null && model.equals(Constant.PUSH) && msg.getTopic().equalsIgnoreCase(topicRequest) ) {
-//        LOGGER.info(msg.getTopic() + "/" + topicRequest +" | Sending to consumer push based: " + msg.getData().toStringUtf8());
-//        if (offsetCount != 0 && offsetIndex.size() > 1 && startingPosRequest < offsetCount) {
-//          sendEachMsgToPushBasedConsumer(startingPosRequest, topicRequest, consumerConnection);
-//          startingPosRequest += msg.getOffset();
-//        }
-//      }
     }
   }
 

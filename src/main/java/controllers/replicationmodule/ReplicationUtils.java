@@ -68,8 +68,7 @@ public class ReplicationUtils {
       Files.copy(originalFilePath, copyFilePath);
       LOGGER.info("Copied: " + originalFilePath + " to: " + copyFilePath);
     } catch (IOException e) {
-//      LOGGER.warning("Error while copying file: " + e.getMessage());
-      e.printStackTrace();
+      LOGGER.warning("Error while copying file: " + e.getMessage());
     }
     return copyFilePath;
   }

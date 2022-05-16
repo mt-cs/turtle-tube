@@ -153,14 +153,6 @@ public class ConsumerReplication {
     }
   }
 
-//   PUSH BASE
-//   consumer connect I am a push based subscribe to this topic
-//   while loop trying to receive msg
-//   broker get topic request
-//   get message
-//   save to file
-//   send to consumer
-
   /**
    * Receive data from Broker
    */

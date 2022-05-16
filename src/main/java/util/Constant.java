@@ -60,6 +60,4 @@ public class Constant {
   public static final String SLASH = "/";
   public static final String UNDERSCORE = "_";
   public static final String SPACE = " ";
-  public static final byte[] NL = "\n".getBytes(StandardCharsets.UTF_8);
-
 }
