@@ -15,7 +15,7 @@ public class Constant {
   public static final int POLL_FREQ = 3000;
   public static final int MAX_PULL = 100;
   public static final int MAX_BYTES = 8000;
-  public static final int MAX_OFFSET_SIZE = 500;
+  public static final int MAX_OFFSET_SIZE = 100;
   public static final int TIMEOUT = 10000;
   public static final int DELAY = 7000;
   public static final int MAX_BOUND = 3;

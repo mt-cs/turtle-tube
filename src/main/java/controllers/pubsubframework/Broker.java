@@ -220,7 +220,7 @@ public class Broker {
               }
               // Getting snapshot to catch up
               LOGGER.info(msg.getMsgId() + " | Sync Up! Received msgInfo snapshot from broker: " + msg.getSrcId());
-//              flushEachMsgToFile(msg);
+              flushEachMsgToFile(msg);
             }
             replicationHandler.sendAck(connection, PubSubUtils.getBrokerLocation(host, port),
                 msg.getOffset(), msg.getSrcId(), msg.getMsgId());
