@@ -234,13 +234,13 @@ public class Broker {
             LOGGER.info("Received snapshot request from broker: " + msg.getSrcId());
             MembershipUtils.updatePubSubConnection(membershipTable, msg.getSrcId(), connection);
             int currVersion = offsetVersionCount;
-            if (currVersion == 0) {
-              // No persistent storage
-              replicationHandler.sendTopicMap(connection);
-            } else {
-              // some topic has been flushed to storage
+//            if (currVersion == 0) {
+//              // No persistent storage
+//              replicationHandler.sendTopicMap(connection);
+//            } else {
+//              // some topic has been flushed to storage
               sendSnapshotToBrokerFromOffset(currVersion, connection);
-            }
+//            }
           } else if (msg.getTypeValue() == 5) {
             model = Constant.PUSH;
             startingPosRequest = msg.getStartingPosition();
@@ -469,6 +469,7 @@ public class Broker {
     // Copy all current topic files snapshot
     ConcurrentHashMap<Path, List<Integer>> offsetIndexMapCopy = new ConcurrentHashMap<>();
     for (Path filePath : offsetIndexMap.keySet()) {
+      LOGGER.info("Copying... " + filePath);
       ReplicationUtils.copyTopicFiles(filePath);
       offsetIndexMapCopy.putIfAbsent(ReplicationUtils.copyTopicFiles(filePath),
           new CopyOnWriteArrayList<>(offsetIndexMap.get(filePath)));
@@ -479,6 +480,7 @@ public class Broker {
     boolean isSent;
 
     for(Path filePath : offsetIndexMapCopy.keySet()) {
+      LOGGER.info("Sending snapshot... " + filePath);
       while (countOffsetSent <= PubSubUtils.getFileSize(filePath)) {
 
         byte[] data = getBytes(countOffsetSent, filePath.getFileName().toString(),

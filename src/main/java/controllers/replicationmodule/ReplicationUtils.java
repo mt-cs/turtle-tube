@@ -82,15 +82,16 @@ public class ReplicationUtils {
       if (!Files.exists(filePathSave)) {
         try {
           Files.write(filePathSave, data);
+          LOGGER.info("Wrote data :" + new String(data));
         } catch (IOException e) {
-          LOGGER.warning("Exception during consumer application write: " + e.getMessage());
+          LOGGER.warning("Exception during topic replication write: " + e.getMessage());
         }
-        LOGGER.info("Creating consumer application file path: " + filePathSave);
+        LOGGER.info("Creating topic file path: " + filePathSave);
       } else {
         try {
           Files.write(filePathSave, data, StandardOpenOption.APPEND);
         } catch (IOException e) {
-          LOGGER.warning("Consumer app file write exception: " + e.getMessage());
+          LOGGER.warning("Topic file write exception: " + e.getMessage());
         }
       }
     }
