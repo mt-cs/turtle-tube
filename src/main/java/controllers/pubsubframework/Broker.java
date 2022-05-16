@@ -169,11 +169,12 @@ public class Broker {
       }
 
       if (msgByte != null) {
-        MsgInfo.Message msg = null;
+        MsgInfo.Message msg;
         try {
           msg = Message.parseFrom(msgByte);
         } catch (InvalidProtocolBufferException e) {
           LOGGER.warning("Error in getting msg: " + e.getMessage());
+          continue;
         }
         if (msg != null) {
           if (msg.getTypeValue() == 0) {
@@ -272,6 +273,11 @@ public class Broker {
             heartBeatScheduler.handleHeartBeatRequest(memberInfo.getId());
           } else if (memberInfo.getState().equals(Constant.CONNECT))  {
             MembershipUtils.addToMembershipTable(connection, memberInfo, membershipTable);
+            if (memberInfo.getIsLeader()) {
+              this.leaderConnection = connection;
+              replicationHandler.sendSnapshotRequest(leaderConnection, brokerLocation);
+              threadPool.execute(() -> receiveMsg(leaderConnection, true));
+            }
 //            LOGGER.info(membershipTable.toString());
           } else if (memberInfo.getState().equals(Constant.ELECTION)) {
             bullyElection.handleElectionRequest(connection, memberInfo.getId());
@@ -656,8 +662,15 @@ public class Broker {
 
       if (!membershipTable.getMembershipMap().containsKey(brokerId)
           && !membershipTable.getFailure()) {
+        LOGGER.info(leaderBasedLocation + " is leader: " + protoInfo.getIsLeader());
         connectToPeer(PubSubUtils.getBrokerLocation(protoInfo.getHost(),
             protoInfo.getPort()), leaderBasedLocation, protoInfo.getId());
+
+        if (protoInfo.getIsLeader()) {
+          this.leaderConnection = PubSubUtils.connectToBroker(leaderBasedLocation, faultInjector);
+          replicationHandler.sendSnapshotRequest(leaderConnection, leaderBasedLocation);
+          threadPool.execute(() -> receiveMsg(leaderConnection, true));
+        }
       }
     }
   }
