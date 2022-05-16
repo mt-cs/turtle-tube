@@ -235,7 +235,7 @@ public class Broker {
           } else if (msg.getTypeValue() == 4) {
             LOGGER.info("Received snapshot request from broker: " + msg.getSrcId());
             MembershipUtils.updatePubSubConnection(membershipTable, msg.getSrcId(), connection);
-            sendSnapshotToBrokerFromOffset(connection);
+            sendSnapshotToBrokerFromOffset(connection, msg.getSrcId());
           } else if (msg.getTypeValue() == 5) {
             model = Constant.PUSH;
             startingPosRequest = msg.getStartingPosition();
@@ -380,7 +380,7 @@ public class Broker {
         try {
           Files.write(filePathSave, msgArr);
           incrementOffset(msg, filePathSave);
-          topicList.remove(i);
+          topicMap.get(msg.getTopic()).remove(msg);
         } catch (IOException e) {
           LOGGER.warning("Error while flushing to disk: " + e.getMessage());
         }
@@ -388,7 +388,8 @@ public class Broker {
         try {
           Files.write(filePathSave, msgArr, StandardOpenOption.APPEND);
           incrementOffset(msg, filePathSave);
-          topicList.remove(i);
+//          topicList.remove(i);
+          topicMap.get(msg.getTopic()).remove(msg);
         } catch (IOException e) {
           LOGGER.warning("Error while flushing to disk: " + e.getMessage());
         }
@@ -436,12 +437,10 @@ public class Broker {
       currOffset = msg.getOffset();
       offsetIndexList.add(currOffset);
       offsetIndexMap.put(filePath, offsetIndexList);
-      LOGGER.info("Add New Topic offset: " + currOffset + " to: " + filePath);
     } else {
       List <Integer> offsetIndexList = offsetIndexMap.get(filePath);
       currOffset = offsetIndexList.get(offsetIndexList.size() - 1) + msg.getOffset();
       offsetIndexMap.get(filePath).add(currOffset);
-      LOGGER.info("Add offset to map: " + currOffset + " to: " + filePath);
     }
   }
 
@@ -478,8 +477,7 @@ public class Broker {
   /**
    * Send snapshot to broker using offset
    */
-  public void sendSnapshotToBrokerFromOffset(ConnectionHandler connection) {
-    LOGGER.info("SNAPSHOT TOPIC MAP SIZE: " + topicMap.size());
+  public void sendSnapshotToBrokerFromOffset(ConnectionHandler connection, String srcId) {
     Map<String, List<Message>> currentTopicMap = topicMap.entrySet().stream()
         .collect(Collectors.toMap(Entry::getKey, e -> List.copyOf(e.getValue())));
 
@@ -490,18 +488,16 @@ public class Broker {
         topicMap.get(msg.getTopic()).remove(msg);
       }
     }
-    LOGGER.info("SNAPSHOT OFFSET INDEX MAP SIZE: " + offsetIndexMap.size());
 
     // Copy all current topic files snapshot
     ConcurrentHashMap<Path, List<Integer>> offsetIndexMapCopy = new ConcurrentHashMap<>();
     for (Path filePath : offsetIndexMap.keySet()) {
       LOGGER.info("Copying... " + filePath);
-      Path fileCopyPath = ReplicationUtils.copyTopicFiles(filePath);
+      Path fileCopyPath = ReplicationUtils.copyTopicFiles(filePath, srcId);
       offsetIndexMapCopy.putIfAbsent(fileCopyPath,
           new CopyOnWriteArrayList<>(offsetIndexMap.get(filePath)));
     }
 
-    LOGGER.info("SNAPSHOT OFFSET INDEX MAP COPY SIZE: " + offsetIndexMapCopy.size());
     LOGGER.info("Sending snapshot... Broker version offset: " + offsetVersionCount);
     int countOffsetSent = 0, id = 1, offset;
     boolean isSent;
@@ -513,7 +509,7 @@ public class Broker {
         byte[] data = getBytes(countOffsetSent, filePath.getFileName().toString(),
             offsetIndexMapCopy.get(filePath));
         if (data == null) {
-          return;
+          break;
         }
         String log = ByteString.copyFrom(data).toStringUtf8();
         offset = data.length;
@@ -529,7 +525,7 @@ public class Broker {
             .setIsSnapshot(true)
             .build();
         if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
-          return;
+          break;
         }
         isSent = connection.send(msgInfo.toByteArray());
         if (isSent) {
@@ -538,6 +534,7 @@ public class Broker {
           LOGGER.warning("Sent failed for msgId: " + id++);
         }
       }
+      countOffsetSent = 0;
     }
     replicationHandler.sendLastSnapshot(connection);
   }

@@ -53,15 +53,15 @@ public class ReplicationUtils {
     return urlSplit[1];
   }
 
-  public static String getCopyFileName(String line) {
+  public static String getCopyFileName(String line, String id) {
     String[] lineSplit = line.split(Constant.OFFSET_LOG);
-    String copyFileName = lineSplit[0] + Constant.COPY_LOG;
+    String copyFileName = lineSplit[0] + Constant.UNDERSCORE + id + Constant.COPY_LOG;
     LOGGER.info("Copy fileName: " + copyFileName);
     return copyFileName;
   }
 
-  public static Path copyTopicFiles(Path originalFilePath) {
-    String copyFileName = getCopyFileName(originalFilePath.getFileName().toString());
+  public static Path copyTopicFiles(Path originalFilePath, String id) {
+    String copyFileName = getCopyFileName(originalFilePath.getFileName().toString(), id);
 
     Path copyFilePath = Path.of(copyFileName);
     try {
