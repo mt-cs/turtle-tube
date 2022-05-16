@@ -28,7 +28,8 @@ public class ConsumerReplicationApp {
     consumer = new ConsumerReplication(consumerConfig.getLoadBalancerLocation(),
                                        consumerConfig.getTopic(),
                                        consumerConfig.getStartingPosition(),
-                                       consumerConfig.getModel());
+                                       consumerConfig.getModel(),
+                                       consumerConfig.getRead());
     Thread consumerAppThread = new Thread(new ApplicationWrite());
     consumerAppThread.start();
     try {

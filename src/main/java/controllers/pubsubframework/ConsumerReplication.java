@@ -31,6 +31,7 @@ public class ConsumerReplication {
   private final BlockingQueue<byte[]> blockingQueue;
   private final String topic;
   private final String model;
+  private final String read;
   private int startingPosition;
   private volatile boolean isRunning;
   private volatile boolean isElecting;
@@ -45,18 +46,25 @@ public class ConsumerReplication {
    * @param startingPosition      int poll starting position
    */
   public ConsumerReplication(String loadBalancerLocation, String topic,
-                             int startingPosition, String model) {
+                             int startingPosition, String model, String read) {
     this.blockingQueue = new BlockingQueue<>(Constant.NUM_QUEUE);
     this.loadBalancerLocation = loadBalancerLocation;
     this.leaderLocation = "";
     this.topic = topic;
     this.model = model;
+    this.read = read;
     this.startingPosition = startingPosition;
     this.isRunning = true;
     this.isElecting = false;
     connectToLoadBalancer();
-    getLeaderAddress();
-    connectToBroker();
+    if (read.equals(Constant.LEADER)) {
+      getLeaderAddress();
+      connectToBroker(leaderLocation);
+    } else if (read.equals(Constant.FOLLOWER)) {
+      System.out.println("woooooooooo");
+      System.exit(0);
+    }
+
     if (model.equals(Constant.PULL)) {
       pollFromBroker(Constant.POLL_FREQ);
     } else {
@@ -76,10 +84,10 @@ public class ConsumerReplication {
   /**
    * Connect to broker
    */
-  public void connectToBroker() {
-    connection = PubSubUtils.connectToBroker(leaderLocation,
+  public void connectToBroker(String brokerLocation) {
+    connection = PubSubUtils.connectToBroker(brokerLocation,
         new FaultInjectorFactory(0).getChaos());
-    LOGGER.info("Consumer is connected to broker: " + leaderLocation);
+    LOGGER.info("Consumer is connected to broker: " + brokerLocation);
   }
 
   /**
@@ -147,7 +155,7 @@ public class ConsumerReplication {
       if (isElecting) {
         PubSubUtils.wait(30000);
         leaderLocation = getLeaderAddress();
-        connectToBroker();
+        connectToBroker(leaderLocation);
         isElecting = false;
       }
     }
