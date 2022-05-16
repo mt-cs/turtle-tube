@@ -10,6 +10,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import model.MsgInfo.Message;
 import org.junit.jupiter.api.Test;
+import util.Constant;
 
 class ReplicationUtilsTest {
   @Test
@@ -76,5 +77,11 @@ class ReplicationUtilsTest {
   @Test
   public void testGetFileSize() {
     System.out.println(new File("log/demo1.log").length());
+  }
+
+  @Test
+  public void testGetCopyFIle() {
+    String[] lineSplit = "broker1_image_offset.log".split(Constant.OFFSET_LOG);
+    System.out.println(lineSplit[0]);
   }
 }

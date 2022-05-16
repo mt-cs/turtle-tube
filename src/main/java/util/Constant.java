@@ -50,6 +50,7 @@ public class Constant {
   public static final String VICTORY = "VICTORY";
   public static final String CANDIDATE = "CANDIDATE";
 
+  public static final String COPY_LOG = "_copy.log";
   public static final String OFFSET_LOG = "_offset.log";
   public static final String LOCALHOST = "localhost";
   public static final String LB = "localhost:1061";

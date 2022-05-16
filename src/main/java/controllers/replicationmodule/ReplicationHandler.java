@@ -250,6 +250,7 @@ public class ReplicationHandler {
         .setIsSnapshot(true)
         .build();
     connection.send(msgInfoLast.toByteArray());
+    LOGGER.info("Sending last snapshot... ");
   }
 
   /**

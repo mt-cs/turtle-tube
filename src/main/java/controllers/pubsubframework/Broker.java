@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
@@ -46,7 +47,7 @@ public class Broker {
   private final int port;
   private int leaderBasedPort;
   private int brokerId;
-  private int offsetCount;
+  private int offsetVersionCount;
 
   private int startingPosRequest;
   private String topicRequest;
@@ -61,7 +62,6 @@ public class Broker {
   private BullyElectionManager bullyElection;
   private ReplicationHandler replicationHandler;
   private FaultInjector faultInjector;
-  private final List<Integer> offsetIndex;
   private final ConcurrentHashMap<Path, List<Integer>> offsetIndexMap;
   private final ConcurrentHashMap<String, List<Message>> topicMap;
   private final ConcurrentHashMap<String, List<Message>> topicMapReplicationSyncUp;
@@ -80,8 +80,7 @@ public class Broker {
     this.offsetIndexMap = new ConcurrentHashMap<>();
     this.threadPool
         = Executors.newFixedThreadPool(Constant.NUM_THREADS);
-    this.offsetCount = 0;
-    this.offsetIndex = Collections.synchronizedList(new ArrayList<>());
+    this.offsetVersionCount = 0;
   }
 
   /**
@@ -105,8 +104,7 @@ public class Broker {
     this.topicMap = new ConcurrentHashMap<>();
     this.topicMapReplicationSyncUp = new ConcurrentHashMap<>();
     this.offsetIndexMap = new ConcurrentHashMap<>();
-    this.offsetCount = 0;
-    this.offsetIndex = Collections.synchronizedList(new ArrayList<>());
+    this.offsetVersionCount = 0;
     this.threadPool = Executors.newFixedThreadPool(Constant.NUM_THREADS);
     this.faultInjector = new FaultInjectorFactory(faultType).getChaos();
     this.membershipTable = new MembershipTable();
@@ -183,7 +181,10 @@ public class Broker {
               receiveFromProducer(connection, msg);
             }
           } else if (msg.getTypeValue() == 1) {
-            Path filePathSave = Path.of(ReplicationAppUtils.getTopicFile(msg.getTopic()));
+            Path filePathSave = null;
+            if (!msg.getTopic().equals(Constant.LAST_SNAPSHOT)) {
+              filePathSave = Path.of(ReplicationAppUtils.getTopicFile(msg.getTopic()));
+            }
             if (!msg.getIsSnapshot()) {
 
               if (isSyncUp) {
@@ -211,17 +212,17 @@ public class Broker {
 
                 // flush all to disk
                 for (Map.Entry<String, List<Message>> topic : topicMap.entrySet()) {
-                  flushToDisk(topicMap.get(topic.getKey()), filePathSave);
+                  flushToDisk(topicMap.get(topic.getKey()), Path.of(ReplicationAppUtils.getTopicFile(topic.getKey())));
                 }
                 continue;
               }
               // Getting snapshot to catch up
               LOGGER.info(msg.getMsgId() + " | Sync Up! Received msgInfo snapshot from broker: " + msg.getSrcId());
-              PubSubUtils.flushToFile(msg.getData().toByteArray());
+              ReplicationUtils.flushReplicateToFile(msg.getData().toByteArray(), msg.getTopic());
             }
             replicationHandler.sendAck(connection, PubSubUtils.getBrokerLocation(host, port),
                 msg.getOffset(), msg.getSrcId(), msg.getMsgId());
-            membershipTable.updateBrokerVersion(brokerId, offsetCount);
+            membershipTable.updateBrokerVersion(brokerId, offsetVersionCount);
           } else if (msg.getTypeValue() == 2) {
             model = Constant.PULL;
             LOGGER.info("Received request from customer for message topic/offset: "
@@ -230,15 +231,15 @@ public class Broker {
           } else if (msg.getTypeValue() == 3) {
             LOGGER.info("Received ACK from: " + msg.getSrcId() + " for msgId: " + msg.getMsgId());
           } else if (msg.getTypeValue() == 4) {
-            LOGGER.info("Received replication request from broker: " + msg.getSrcId());
+            LOGGER.info("Received snapshot request from broker: " + msg.getSrcId());
             MembershipUtils.updatePubSubConnection(membershipTable, msg.getSrcId(), connection);
-            int currOffsetCount = offsetCount;
-            if (currOffsetCount == 0) {
+            int currVersion = offsetVersionCount;
+            if (currVersion == 0) {
+              // No persistent storage
               replicationHandler.sendTopicMap(connection);
             } else {
               // some topic has been flushed to storage
-              sendSnapshotToBrokerFromOffset(connection, currOffsetCount,
-                  ReplicationAppUtils.getTopicFile(msg.getTopic()));
+              sendSnapshotToBrokerFromOffset(currVersion, connection);
             }
           } else if (msg.getTypeValue() == 5) {
             model = Constant.PUSH;
@@ -410,20 +411,19 @@ public class Broker {
 
   private void incrementOffset(Message msg, Path filePath) {
     int currOffset;
+    offsetVersionCount += msg.getOffset();
     if (!offsetIndexMap.containsKey(filePath)) {
       List <Integer> offsetIndexList = Collections.synchronizedList(new ArrayList<>());
       currOffset = msg.getOffset();
       offsetIndexList.add(currOffset);
+      offsetIndexMap.put(filePath, offsetIndexList);
+      LOGGER.info("Add New Topic offset: " + currOffset + " to: " + filePath);
     } else {
       List <Integer> offsetIndexList = offsetIndexMap.get(filePath);
       currOffset = offsetIndexList.get(offsetIndexList.size() - 1) + msg.getOffset();
       offsetIndexMap.get(filePath).add(currOffset);
+      LOGGER.info("Add offset to map: " + currOffset + " to: " + filePath);
     }
-    LOGGER.info("Add offset: " + currOffset + " to: " + filePath);
-
-    offsetIndex.add(offsetCount);
-    LOGGER.info("Offset count: " + offsetCount);
-    offsetCount += msg.getOffset();
   }
 
   /**
@@ -435,7 +435,9 @@ public class Broker {
     int startingOffset = msg.getStartingPosition();
     int countOffsetSent = 0, offset;
     while (countOffsetSent <= Constant.MAX_BYTES) {
-      byte[] data = getBytes(startingOffset, ReplicationAppUtils.getTopicFile(msg.getTopic()));
+      String fileName = ReplicationAppUtils.getTopicFile(msg.getTopic());
+      byte[] data = getBytes(startingOffset, fileName,
+          offsetIndexMap.get(Path.of(fileName)));
       offset = data.length;
       startingOffset += offset;
       countOffsetSent += offset;
@@ -457,38 +459,64 @@ public class Broker {
   /**
    * Send snapshot to broker using offset
    */
-  public void sendSnapshotToBrokerFromOffset(ConnectionHandler connection, int currOffset, String fileName) {
-    if (currOffset == 0) {
+  public void sendSnapshotToBrokerFromOffset(int currVersionOffset, ConnectionHandler connection) {
+    if (currVersionOffset == 0) {
       LOGGER.info("Persistent storage is empty");
+      // flush All to Disk
       return;
     }
-    LOGGER.info("Sending snapshot offset... Current offset: " + currOffset);
+    // Copy all current topic files
+    LOGGER.info("SNAPSHOT MODE!");
+    ConcurrentHashMap<Path, List<Integer>> offsetIndexMapCopy = new ConcurrentHashMap<>();
+
+    for (Map.Entry<Path, List<Integer>> filePath : offsetIndexMap.entrySet()) {
+      LOGGER.info("COPYING PATH: " + filePath.getKey());
+      LOGGER.info("LIST SIZE: " + offsetIndexMap.get(filePath.getKey()).size());
+    }
+
+    for (Path filePath : offsetIndexMap.keySet()) {
+      LOGGER.info("copying...." + filePath);
+      ReplicationUtils.copyTopicFiles(filePath);
+      offsetIndexMapCopy.putIfAbsent(ReplicationUtils.copyTopicFiles(filePath),
+          new CopyOnWriteArrayList<>(offsetIndexMap.get(filePath)));
+    }
+
+    for (Path filePath : offsetIndexMapCopy.keySet()) {
+      LOGGER.info("COPY PATH: " + filePath);
+    }
+
+    LOGGER.info("Sending snapshot... Broker version offset: " + offsetVersionCount);
     int countOffsetSent = 0, id = 1, offset;
     boolean isSent;
-    while (countOffsetSent < currOffset) {
-      LOGGER.info("Snapshot offset count: " + countOffsetSent + "/" + currOffset);
-      byte[] data = getBytes(countOffsetSent, fileName);
-      String log = ByteString.copyFrom(data).toStringUtf8();
-      offset = data.length;
-      countOffsetSent += offset;
 
-      MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
-          .setTypeValue(1)
-          .setData(ByteString.copyFrom(data))
-          .setOffset(offset)
-          .setTopic(ReplicationUtils.getTopic(log))
-          .setSrcId(PubSubUtils.getBrokerLocation(host, port))
-          .setMsgId(id)
-          .setIsSnapshot(true)
-          .build();
-      if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
-        return;
-      }
-      isSent = connection.send(msgInfo.toByteArray());
-      if (isSent) {
-        LOGGER.info(id++ + " | Sent snapshot of: " + ByteString.copyFrom(data));
-      } else {
-        LOGGER.warning("Sent failed for msgId: " + id++);
+    for(Path filePath : offsetIndexMapCopy.keySet()) {
+      LOGGER.info("Sending snapshot for : " + filePath);
+      while (countOffsetSent <= PubSubUtils.getFileSize(filePath)) {
+
+        byte[] data = getBytes(countOffsetSent, filePath.getFileName().toString(),
+            offsetIndexMapCopy.get(filePath));
+        String log = ByteString.copyFrom(data).toStringUtf8();
+        offset = data.length;
+        countOffsetSent += offset;
+
+        MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
+            .setTypeValue(1)
+            .setData(ByteString.copyFrom(data))
+            .setOffset(offset)
+            .setTopic(ReplicationUtils.getTopic(log))
+            .setSrcId(PubSubUtils.getBrokerLocation(host, port))
+            .setMsgId(id)
+            .setIsSnapshot(true)
+            .build();
+        if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
+          return;
+        }
+        isSent = connection.send(msgInfo.toByteArray());
+        if (isSent) {
+          LOGGER.info(id++ + " | Sent snapshot of: " + ByteString.copyFrom(data));
+        } else {
+          LOGGER.warning("Sent failed for msgId: " + id++);
+        }
       }
     }
     replicationHandler.sendLastSnapshot(connection);
@@ -500,7 +528,7 @@ public class Broker {
    * @param startingOffset starting offset
    * @return byte[] messages for consumer
    */
-  public byte[] getBytes(int startingOffset, String fileName) {
+  public byte[] getBytes(int startingOffset, String fileName, List<Integer> offsetIndex) {
     int nextIdx, byteSize;
     byte[] data = new byte[0];
     try (InputStream inputStream = new FileInputStream(fileName)) {
@@ -522,15 +550,6 @@ public class Broker {
     return data;
   }
 
-//   PUSH BASE
-//   consumer connect I am a push based subscribe to this topic
-//   while loop trying to receive msg
-//   broker get topic request
-//   get message
-//   save to file
-//   send to consumer
-
-
   /**
    * Sending message to push-based customer
    * from starting position to max pull
@@ -542,8 +561,9 @@ public class Broker {
       ConnectionHandler connection, String fileName) {
     LOGGER.info("Sending data to push-based consumer: ");
     int countOffsetSent = 0, offset;
-    while (countOffsetSent <= PubSubUtils.getFileSize(fileName)) {
-      byte[] data = getBytes(startingOffset, fileName);
+    while (countOffsetSent <= PubSubUtils.getFileSize(Path.of(fileName))) {
+      byte[] data = getBytes(startingOffset, fileName,
+          offsetIndexMap.get(Path.of(fileName)));
       if (data == null) {
         return;
       }
@@ -578,7 +598,8 @@ public class Broker {
   public void sendEachMsgToPushBasedConsumer(int startingOffset, String topic,
       ConnectionHandler connection, String fileName) {
     LOGGER.info("Sending data to push-based consumer: ");
-    byte[] data = getBytes(startingOffset, fileName);
+    byte[] data = getBytes(startingOffset, fileName,
+        offsetIndexMap.get(Path.of(fileName)));
     if (data.length == 0) {
       return;
     }

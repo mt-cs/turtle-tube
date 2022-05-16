@@ -56,8 +56,15 @@ public class PubSubUtils {
     return offsetIndex.get(idx);
   }
 
-  public static long getFileSize(String filePath) {
-    return new File(filePath).length();
+  public static long getFileSize(Path filePath) {
+    try {
+      long size = Files.size(filePath);
+      LOGGER.info(filePath + " size: " + size);
+      return size;
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    return 0;
   }
 
   public static void flushToFile(byte[] data) {
