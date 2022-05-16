@@ -1,1 +1,1 @@
-{"type": "producer", "id": "1", "loadBalancerLocation": "localhost:1061", "filename" : "log/test.log", "isFullSpeed": "true"}
+{"type": "producer", "id": "1", "loadBalancerLocation": "localhost:1061", "filename" : "log/demo1.log", "isFullSpeed": "true"}
