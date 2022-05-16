@@ -388,7 +388,6 @@ public class Broker {
         try {
           Files.write(filePathSave, msgArr, StandardOpenOption.APPEND);
           incrementOffset(msg, filePathSave);
-//          topicList.remove(i);
           topicMap.get(msg.getTopic()).remove(msg);
         } catch (IOException e) {
           LOGGER.warning("Error while flushing to disk: " + e.getMessage());
@@ -492,7 +491,6 @@ public class Broker {
     // Copy all current topic files snapshot
     ConcurrentHashMap<Path, List<Integer>> offsetIndexMapCopy = new ConcurrentHashMap<>();
     for (Path filePath : offsetIndexMap.keySet()) {
-      LOGGER.info("Copying... " + filePath);
       Path fileCopyPath = ReplicationUtils.copyTopicFiles(filePath, srcId);
       offsetIndexMapCopy.putIfAbsent(fileCopyPath,
           new CopyOnWriteArrayList<>(offsetIndexMap.get(filePath)));

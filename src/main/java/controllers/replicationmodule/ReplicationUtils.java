@@ -55,7 +55,7 @@ public class ReplicationUtils {
 
   public static String getCopyFileName(String line, String id) {
     String[] lineSplit = line.split(Constant.OFFSET_LOG);
-    String copyFileName = lineSplit[0] + Constant.UNDERSCORE + id + Constant.COPY_LOG;
+    String copyFileName = lineSplit[0] + Constant.UNDERSCORE + PubSubUtils.getPort(id) + Constant.COPY_LOG;
     LOGGER.info("Copy fileName: " + copyFileName);
     return copyFileName;
   }
