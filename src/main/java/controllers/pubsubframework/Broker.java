@@ -110,9 +110,11 @@ public class Broker {
         new ConnectionHandler(Constant.LOCALHOST, Constant.LB_PORT, faultInjector);
     MembershipUtils.addSelfToMembershipTable(host, port,
         leaderBasedPort, isLeader, brokerId, membershipTable);
-    if (isLeader) {
-      MembershipUtils.sendLeaderLocation(loadBalancerConnection, brokerId, host, port);
-    }
+//    if (isLeader) {
+//      MembershipUtils.sendLeaderLocation(loadBalancerConnection, brokerId, host, port);
+//    }
+
+    MembershipUtils.sendBrokerLocation(loadBalancerConnection, brokerId, host, port, isLeader);
     this.bullyElection = new BullyElectionManager(brokerId, membershipTable, loadBalancerConnection);
     this.replicationHandler = new ReplicationHandler(membershipTable, host, port, brokerId, topicMap);
     this.heartBeatScheduler = new HeartBeatScheduler(brokerId,

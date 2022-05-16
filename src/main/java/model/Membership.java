@@ -317,6 +317,10 @@ public final class Membership {
        * <code>LOADBALANCER = 3;</code>
        */
       LOADBALANCER(3),
+      /**
+       * <code>CONSUMER_FOLLOWER = 4;</code>
+       */
+      CONSUMER_FOLLOWER(4),
       UNRECOGNIZED(-1),
       ;
 
@@ -336,6 +340,10 @@ public final class Membership {
        * <code>LOADBALANCER = 3;</code>
        */
       public static final int LOADBALANCER_VALUE = 3;
+      /**
+       * <code>CONSUMER_FOLLOWER = 4;</code>
+       */
+      public static final int CONSUMER_FOLLOWER_VALUE = 4;
 
 
       public final int getNumber() {
@@ -366,6 +374,7 @@ public final class Membership {
           case 1: return BROKER;
           case 2: return CONSUMER;
           case 3: return LOADBALANCER;
+          case 4: return CONSUMER_FOLLOWER;
           default: return null;
         }
       }
@@ -2874,7 +2883,7 @@ public final class Membership {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\027protos/membership.proto\"\207\003\n\nMemberInfo" +
+      "\n\027protos/membership.proto\"\236\003\n\nMemberInfo" +
       "\022\014\n\004host\030\001 \001(\t\022\014\n\004port\030\002 \001(\005\022\n\n\002id\030\003 \001(\005" +
       "\022\020\n\010isLeader\030\004 \001(\010\022\r\n\005state\030\005 \001(\t\022\022\n\nlea" +
       "derHost\030\006 \001(\t\022\022\n\nleaderPort\030\007 \001(\005\022\017\n\007isA" +
@@ -2882,13 +2891,13 @@ public final class Membership {
       "cType\0229\n\017membershipTable\030\n \003(\0132 .MemberI" +
       "nfo.MembershipTableEntry\022\017\n\007version\030\013 \001(" +
       "\005\032C\n\024MembershipTableEntry\022\013\n\003key\030\001 \001(\005\022\032" +
-      "\n\005value\030\002 \001(\0132\013.BrokerInfo:\0028\001\"C\n\007srcTyp" +
+      "\n\005value\030\002 \001(\0132\013.BrokerInfo:\0028\001\"Z\n\007srcTyp" +
       "e\022\014\n\010PRODUCER\020\000\022\n\n\006BROKER\020\001\022\014\n\010CONSUMER\020" +
-      "\002\022\020\n\014LOADBALANCER\020\003\"|\n\nBrokerInfo\022\014\n\004hos" +
-      "t\030\001 \001(\t\022\014\n\004port\030\002 \001(\005\022\022\n\nleaderPort\030\003 \001(" +
-      "\005\022\n\n\002id\030\004 \001(\005\022\017\n\007version\030\005 \001(\005\022\017\n\007isAliv" +
-      "e\030\006 \001(\010\022\020\n\010isLeader\030\007 \001(\010B\023\n\005modelB\nMemb" +
-      "ershipb\006proto3"
+      "\002\022\020\n\014LOADBALANCER\020\003\022\025\n\021CONSUMER_FOLLOWER" +
+      "\020\004\"|\n\nBrokerInfo\022\014\n\004host\030\001 \001(\t\022\014\n\004port\030\002" +
+      " \001(\005\022\022\n\nleaderPort\030\003 \001(\005\022\n\n\002id\030\004 \001(\005\022\017\n\007" +
+      "version\030\005 \001(\005\022\017\n\007isAlive\030\006 \001(\010\022\020\n\010isLead" +
+      "er\030\007 \001(\010B\023\n\005modelB\nMembershipb\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

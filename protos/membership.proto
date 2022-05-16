@@ -25,6 +25,7 @@ message MemberInfo {
     BROKER = 1;
     CONSUMER = 2;
     LOADBALANCER = 3;
+    CONSUMER_FOLLOWER = 4;
   }
 }
 

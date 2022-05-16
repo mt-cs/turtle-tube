@@ -7,9 +7,11 @@ import controllers.membershipmodule.MembershipUtils;
 import controllers.messagingframework.ConnectionHandler;
 import controllers.messagingframework.Listener;
 import java.io.IOException;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 import model.Membership;
+import model.Membership.MemberInfo;
 
 /**
  * Load balancer class
@@ -18,11 +20,12 @@ import model.Membership;
  */
 public class LoadBalancer {
   private final int port;
-  private boolean isRunning;
+  private final boolean isRunning;
   private volatile String leaderHost;
   private volatile int leaderPort;
   private volatile boolean isLeaderSelected;
   private final ReentrantLock reentrantLock;
+  private ConcurrentLinkedQueue<MemberInfo> followerQueue;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
   /**
@@ -35,6 +38,7 @@ public class LoadBalancer {
     this.isRunning = true;
     this.isLeaderSelected = false;
     this.reentrantLock = new ReentrantLock();
+    this.followerQueue = new ConcurrentLinkedQueue<>();
   }
 
   /**
@@ -58,37 +62,48 @@ public class LoadBalancer {
    * Distribute data according data type value
    */
   private void receiveRequest(ConnectionHandler connection) {
-    Membership.MemberInfo leaderInfo = null;
+    Membership.MemberInfo requestInfo = null;
     while (isRunning) {
 
-        byte[] leaderInfoArr;
+        byte[] requestInfoArr;
         try {
-          leaderInfoArr = connection.receive();
+          requestInfoArr = connection.receive();
         } catch (IOException ioe) {
           LOGGER.warning("IOException in load balancer receive request: " + ioe.getMessage());
           isLeaderSelected = false;
           break;
         }
 
-        if (leaderInfoArr != null) {
+        if (requestInfoArr != null) {
           try {
-            leaderInfo = Membership.MemberInfo.parseFrom(leaderInfoArr);
+            requestInfo = Membership.MemberInfo.parseFrom(requestInfoArr);
           } catch (InvalidProtocolBufferException e) {
             LOGGER.warning("Error load balancer receive request: " + e.getMessage());
           }
 
-          if (leaderInfo != null) {
-            int leaderId = leaderInfo.getId();
+          if (requestInfo != null) {
+            int leaderId = requestInfo.getId();
 
-            if (leaderInfo.getTypeValue() == 1) {
-              reentrantLock.lock();
-              leaderHost = leaderInfo.getHost();
-              leaderPort = leaderInfo.getPort();
-              reentrantLock.unlock();
-              LOGGER.info("Current leader: " + leaderId);
-              isLeaderSelected = true;
-              MembershipUtils.sendLeaderLocation(connection,
-                  leaderId, leaderHost, leaderPort);
+            if (requestInfo.getTypeValue() == 1) {
+              if (requestInfo.getIsLeader()) {
+                reentrantLock.lock();
+                leaderHost = requestInfo.getHost();
+                leaderPort = requestInfo.getPort();
+                reentrantLock.unlock();
+                LOGGER.info("Current leader: " + leaderId);
+                isLeaderSelected = true;
+                MembershipUtils.sendLeaderLocation(connection,
+                    leaderId, leaderHost, leaderPort);
+              } else {
+                followerQueue.add(requestInfo);
+                LOGGER.info("Added member to queue: " + requestInfo.getPort());
+              }
+            } if (requestInfo.getTypeValue() == 4) {
+              MemberInfo followerInfo = followerQueue.poll();
+              LOGGER.info("Current follower: " + followerInfo.getId());
+              MembershipUtils.sendBrokerLocation(connection,
+                  followerInfo.getId(), followerInfo.getHost(),
+                  followerInfo.getPort(), followerInfo.getIsLeader());
             } else {
               if (isLeaderSelected) {
                 MembershipUtils.sendLeaderLocation(connection,
@@ -102,12 +117,5 @@ public class LoadBalancer {
         }
     }
     connection.close();
-  }
-
-  /**
-   * Close listener
-   */
-  public void close() {
-    this.isRunning = false;
   }
 }

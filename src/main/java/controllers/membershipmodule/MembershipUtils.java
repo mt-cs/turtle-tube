@@ -74,7 +74,7 @@ public class MembershipUtils {
   }
 
   /**
-   * Helper method to currentLeader address
+   * Helper method to send currentLeader address
    */
   public static void sendLeaderLocation(ConnectionHandler connection, int leaderId,
       String leaderHost, int leaderPort) {
@@ -88,6 +88,24 @@ public class MembershipUtils {
         PubSubUtils.getBrokerLocation(leaderHost, leaderPort));
 
     connection.send(leaderInfo.toByteArray());
+  }
+
+  /**
+   * Helper method to send broker address
+   */
+  public static void sendBrokerLocation(ConnectionHandler connection, int brokerId,
+      String brokerHost, int brokerPort, boolean isLeader) {
+    MemberInfo brokerInfo = MemberInfo.newBuilder()
+        .setTypeValue(1)
+        .setHost(brokerHost)
+        .setPort(brokerPort)
+        .setId(brokerId)
+        .setIsLeader(isLeader)
+        .build();
+    LOGGER.info("Sent broker info: " +
+        PubSubUtils.getBrokerLocation(brokerHost, brokerPort));
+
+    connection.send(brokerInfo.toByteArray());
   }
 
   /**

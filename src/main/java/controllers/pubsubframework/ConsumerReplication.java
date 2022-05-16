@@ -26,12 +26,12 @@ import util.Constant;
 public class ConsumerReplication {
   private final String loadBalancerLocation;
   private String leaderLocation;
+  private String followerLocation;
   private ConnectionHandler loadBalancerConnection;
   private ConnectionHandler connection;
   private final BlockingQueue<byte[]> blockingQueue;
   private final String topic;
   private final String model;
-  private final String read;
   private int startingPosition;
   private volatile boolean isRunning;
   private volatile boolean isElecting;
@@ -50,9 +50,9 @@ public class ConsumerReplication {
     this.blockingQueue = new BlockingQueue<>(Constant.NUM_QUEUE);
     this.loadBalancerLocation = loadBalancerLocation;
     this.leaderLocation = "";
+    this.followerLocation = "";
     this.topic = topic;
     this.model = model;
-    this.read = read;
     this.startingPosition = startingPosition;
     this.isRunning = true;
     this.isElecting = false;
@@ -61,8 +61,8 @@ public class ConsumerReplication {
       getLeaderAddress();
       connectToBroker(leaderLocation);
     } else if (read.equals(Constant.FOLLOWER)) {
-      System.out.println("woooooooooo");
-      System.exit(0);
+      getFollowerAddress();
+      connectToBroker(followerLocation);
     }
 
     if (model.equals(Constant.PULL)) {
@@ -203,6 +203,39 @@ public class ConsumerReplication {
         }
       }
     }
+  }
+
+  /**
+   * Get leader pubsub location
+   */
+  public String getFollowerAddress() {
+    MemberInfo followerAddressRequest = MemberInfo.newBuilder()
+        .setTypeValue(4)
+        .build();
+    loadBalancerConnection.send(followerAddressRequest.toByteArray());
+
+    FutureTask<MemberInfo> future = new FutureTask<>(() ->
+        MemberInfo.parseFrom(loadBalancerConnection.receive()));
+    executor.execute(future);
+
+    String followerHost = "";
+    int followerPort = 0;
+    try {
+      followerHost = future.get().getHost();
+      followerPort = future.get().getPort();
+    } catch (ExecutionException | InterruptedException e) {
+      e.printStackTrace();
+    }
+
+    String brokerLocation
+        = PubSubUtils.getBrokerLocation(followerHost, followerPort);
+    if (!brokerLocation.equals(followerLocation)) {
+      followerLocation = brokerLocation;
+    } else {
+      followerLocation = "";
+    }
+    LOGGER.info("Follower location: " + followerLocation);
+    return followerLocation;
   }
 
   /**
