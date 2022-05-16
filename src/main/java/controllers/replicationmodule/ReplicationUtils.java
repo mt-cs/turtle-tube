@@ -54,7 +54,6 @@ public class ReplicationUtils {
   }
 
   public static String getCopyFileName(String line) {
-    LOGGER.info("Copy from: " + line);
     String[] lineSplit = line.split(Constant.OFFSET_LOG);
     String copyFileName = lineSplit[0] + Constant.COPY_LOG;
     LOGGER.info("Copy fileName: " + copyFileName);
@@ -62,7 +61,6 @@ public class ReplicationUtils {
   }
 
   public static Path copyTopicFiles(Path originalFilePath) {
-    LOGGER.info("Copy topic to files: " + originalFilePath);
     String copyFileName = getCopyFileName(originalFilePath.getFileName().toString());
 
     Path copyFilePath = Path.of(copyFileName);
@@ -70,30 +68,10 @@ public class ReplicationUtils {
       Files.copy(originalFilePath, copyFilePath);
       LOGGER.info("Copied: " + originalFilePath + " to: " + copyFilePath);
     } catch (IOException e) {
-      LOGGER.warning("Error while copying file: " + e.getMessage());
+//      LOGGER.warning("Error while copying file: " + e.getMessage());
+      e.printStackTrace();
     }
     return copyFilePath;
   }
 
-
-  public static void flushReplicateToFile(byte[] data, String topic) {
-    if (data != null) {
-      Path filePathSave = Path.of(ReplicationAppUtils.getTopicFile(topic));
-      if (!Files.exists(filePathSave)) {
-        try {
-          Files.write(filePathSave, data);
-          LOGGER.info("Wrote data :" + new String(data));
-        } catch (IOException e) {
-          LOGGER.warning("Exception during topic replication write: " + e.getMessage());
-        }
-        LOGGER.info("Creating topic file path: " + filePathSave);
-      } else {
-        try {
-          Files.write(filePathSave, data, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-          LOGGER.warning("Topic file write exception: " + e.getMessage());
-        }
-      }
-    }
-  }
 }

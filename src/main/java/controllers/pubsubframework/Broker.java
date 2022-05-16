@@ -22,11 +22,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import model.Membership;
 import model.Membership.MemberInfo;
 import model.MsgInfo;
@@ -218,7 +220,7 @@ public class Broker {
               }
               // Getting snapshot to catch up
               LOGGER.info(msg.getMsgId() + " | Sync Up! Received msgInfo snapshot from broker: " + msg.getSrcId());
-              ReplicationUtils.flushReplicateToFile(msg.getData().toByteArray(), msg.getTopic());
+//              flushEachMsgToFile(msg);
             }
             replicationHandler.sendAck(connection, PubSubUtils.getBrokerLocation(host, port),
                 msg.getOffset(), msg.getSrcId(), msg.getMsgId());
@@ -233,14 +235,7 @@ public class Broker {
           } else if (msg.getTypeValue() == 4) {
             LOGGER.info("Received snapshot request from broker: " + msg.getSrcId());
             MembershipUtils.updatePubSubConnection(membershipTable, msg.getSrcId(), connection);
-            int currVersion = offsetVersionCount;
-//            if (currVersion == 0) {
-//              // No persistent storage
-//              replicationHandler.sendTopicMap(connection);
-//            } else {
-//              // some topic has been flushed to storage
-              sendSnapshotToBrokerFromOffset(currVersion, connection);
-//            }
+            sendSnapshotToBrokerFromOffset(connection);
           } else if (msg.getTypeValue() == 5) {
             model = Constant.PUSH;
             startingPosRequest = msg.getStartingPosition();
@@ -409,6 +404,29 @@ public class Broker {
     }
   }
 
+  public void flushEachMsgToFile(Message msg) {
+    byte[] data = msg.getData().toByteArray();
+    if (data != null) {
+      Path filePathSave = Path.of(ReplicationAppUtils.getTopicFile(msg.getTopic()));
+      if (!Files.exists(filePathSave)) {
+        try {
+          LOGGER.info("Creating topic file path: " + filePathSave);
+          Files.write(filePathSave, data);
+          incrementOffset(msg, filePathSave);
+        } catch (IOException e) {
+          LOGGER.warning("Exception during topic replication write: " + e.getMessage());
+        }
+      } else {
+        try {
+          Files.write(filePathSave, data, StandardOpenOption.APPEND);
+          incrementOffset(msg, filePathSave);
+        } catch (IOException e) {
+          LOGGER.warning("Topic file write exception: " + e.getMessage());
+        }
+      }
+    }
+  }
+
   private void incrementOffset(Message msg, Path filePath) {
     int currOffset;
     offsetVersionCount += msg.getOffset();
@@ -460,21 +478,30 @@ public class Broker {
   /**
    * Send snapshot to broker using offset
    */
-  public void sendSnapshotToBrokerFromOffset(int currVersionOffset, ConnectionHandler connection) {
-    if (currVersionOffset == 0) {
-      LOGGER.info("Persistent storage is empty");
-      // flush All to Disk
-      return;
+  public void sendSnapshotToBrokerFromOffset(ConnectionHandler connection) {
+    LOGGER.info("SNAPSHOT TOPIC MAP SIZE: " + topicMap.size());
+    Map<String, List<Message>> currentTopicMap = topicMap.entrySet().stream()
+        .collect(Collectors.toMap(Entry::getKey, e -> List.copyOf(e.getValue())));
+
+    // Flush current topicMap to Offset
+    for (Map.Entry<String, List<Message>> topic : currentTopicMap.entrySet()) {
+      for (Message msg : topic.getValue()) {
+        flushEachMsgToFile(msg);
+        topicMap.get(msg.getTopic()).remove(msg);
+      }
     }
+    LOGGER.info("SNAPSHOT OFFSET INDEX MAP SIZE: " + offsetIndexMap.size());
+
     // Copy all current topic files snapshot
     ConcurrentHashMap<Path, List<Integer>> offsetIndexMapCopy = new ConcurrentHashMap<>();
     for (Path filePath : offsetIndexMap.keySet()) {
       LOGGER.info("Copying... " + filePath);
-      ReplicationUtils.copyTopicFiles(filePath);
-      offsetIndexMapCopy.putIfAbsent(ReplicationUtils.copyTopicFiles(filePath),
+      Path fileCopyPath = ReplicationUtils.copyTopicFiles(filePath);
+      offsetIndexMapCopy.putIfAbsent(fileCopyPath,
           new CopyOnWriteArrayList<>(offsetIndexMap.get(filePath)));
     }
 
+    LOGGER.info("SNAPSHOT OFFSET INDEX MAP COPY SIZE: " + offsetIndexMapCopy.size());
     LOGGER.info("Sending snapshot... Broker version offset: " + offsetVersionCount);
     int countOffsetSent = 0, id = 1, offset;
     boolean isSent;
@@ -485,6 +512,9 @@ public class Broker {
 
         byte[] data = getBytes(countOffsetSent, filePath.getFileName().toString(),
             offsetIndexMapCopy.get(filePath));
+        if (data == null) {
+          return;
+        }
         String log = ByteString.copyFrom(data).toStringUtf8();
         offset = data.length;
         countOffsetSent += offset;
