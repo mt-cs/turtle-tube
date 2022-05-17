@@ -29,7 +29,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import model.MemberAccount;
 import model.Membership;
+import model.Membership.BrokerList;
 import model.Membership.MemberInfo;
 import model.MsgInfo;
 import model.MsgInfo.Message;
@@ -63,6 +65,7 @@ public class Broker {
   private final ConcurrentHashMap<Path, List<Integer>> offsetIndexMap;
   private final ConcurrentHashMap<String, List<Message>> topicMap;
   private final ConcurrentHashMap<String, List<Message>> topicMapReplicationSyncUp;
+  private final ConcurrentHashMap<String, List<MemberAccount>> rfMap;
   private volatile boolean isRunning = true;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
@@ -75,6 +78,7 @@ public class Broker {
     this.port = port;
     this.topicMap = new ConcurrentHashMap<>();
     this.topicMapReplicationSyncUp = new ConcurrentHashMap<>();
+    this.rfMap = new ConcurrentHashMap<>();
     this.offsetIndexMap = new ConcurrentHashMap<>();
     this.threadPool
         = Executors.newFixedThreadPool(Constant.NUM_THREADS);
@@ -103,6 +107,7 @@ public class Broker {
     this.topicMap = new ConcurrentHashMap<>();
     this.topicMapReplicationSyncUp = new ConcurrentHashMap<>();
     this.offsetIndexMap = new ConcurrentHashMap<>();
+    this.rfMap = new ConcurrentHashMap<>();
     this.offsetVersionCount = 0;
     this.threadPool = Executors.newFixedThreadPool(Constant.NUM_THREADS);
     this.faultInjector = new FaultInjectorFactory(faultType).getChaos();
@@ -285,16 +290,13 @@ public class Broker {
 
           if (memberInfo.getState().equals(Constant.ALIVE)) {
             updateMembershipTable(memberInfo.getMembershipTableMap());
+            updateMembershipTableRf(memberInfo.getReplicationTableMap());
 //            LOGGER.info(membershipTable.toString());
             heartBeatScheduler.handleHeartBeatRequest(memberInfo.getId());
           } else if (memberInfo.getState().equals(Constant.CONNECT))  {
             if (isSnapshot && !memberInfo.getIsLeader()) {
               MembershipUtils.addToMembershipTable(connection, memberInfo, membershipTable);
             }
-
-//            MembershipUtils.addToMembershipTable(connection, memberInfo, membershipTable);
-//            LOGGER.info(membershipTable.toString());
-
           } else if (memberInfo.getState().equals(Constant.ELECTION)) {
             bullyElection.handleElectionRequest(connection, memberInfo.getId());
           } else if (memberInfo.getState().equals(Constant.CANDIDATE)) {
@@ -372,6 +374,13 @@ public class Broker {
       LOGGER.info(PubSubUtils.getMsgTopicInfo(msgFromProducer));
       topicMap.put(msgFromProducer.getTopic(), msgList);
       LOGGER.info("New Topic List: " + msgFromProducer.getTopic() + " added to broker's topicMap");
+
+      // Set up replication rf broker List
+      List<MemberAccount> rfBrokerList = replicationHandler.getRfBrokerList();
+
+      // update membership replication map
+      membershipTable.addRfBrokerList(msgFromProducer.getTopic(), rfBrokerList);
+
     } else {
       topicMap.get(msgFromProducer.getTopic()).add(msgFromProducer);
       LOGGER.info(PubSubUtils.getMsgTopicInfo(msgFromProducer));
@@ -646,6 +655,24 @@ public class Broker {
         .setTopic("close")
         .build();
     connection.send(msgInfo.toByteArray());
+  }
+
+  /**
+   * Update membership table based on received heartbeat
+   *
+   * @param rfBrokerMap membership table instance for protobuf
+   */
+  private void updateMembershipTableRf(Map<String, BrokerList> rfBrokerMap) {
+    Membership.BrokerList brokerList;
+    for (String topic : rfBrokerMap.keySet()) {
+      brokerList = rfBrokerMap.get(brokerId);
+      if (brokerList == null) {
+        LOGGER.info("Broker list is null");
+        return;
+      }
+      LOGGER.info(new String(brokerList.toByteArray()));
+      membershipTable.getReplicationMap().putIfAbsent(topic, brokerList);
+    }
   }
 
   /**

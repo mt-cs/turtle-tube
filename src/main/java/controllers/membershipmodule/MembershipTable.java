@@ -1,12 +1,17 @@
 package controllers.membershipmodule;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 import model.MemberAccount;
 import model.Membership;
+import model.Membership.BrokerInfo;
+import model.Membership.BrokerList;
 
 /**
  * Class for membership table instance
@@ -16,7 +21,7 @@ import model.Membership;
 public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccount>> {
   private final ConcurrentMap<Integer, MemberAccount> membershipMap;
   private final ConcurrentMap<Integer, Membership.BrokerInfo> protoMap;
-  private final ConcurrentMap<String, Membership.BrokerInfo> replicationMap;
+  private final ConcurrentMap<String, BrokerList> replicationMap;
   private volatile boolean isFailure;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
@@ -43,6 +48,17 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
   public synchronized void add(int id, MemberAccount brokerInfo) {
     membershipMap.computeIfAbsent(id, v -> brokerInfo);
     protoMap.computeIfAbsent(id, v -> getProtoInfo(id, brokerInfo));
+  }
+
+  /**
+   * Key id, value brokerInfo to the map and protomap
+   *
+   * @param topic      String msg topic
+   * @param memberList Member account list
+   */
+  public synchronized void addRfBrokerList(String topic, List<MemberAccount> memberList) {
+    LOGGER.info("Adding topic to replication map: " + topic);
+    replicationMap.computeIfAbsent(topic, v -> getRfBrokerInfoList(memberList));
   }
 
   /**
@@ -150,6 +166,10 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
     return isFailure;
   }
 
+  public ConcurrentMap<String, BrokerList> getReplicationMap() {
+    return replicationMap;
+  }
+
   /**
    * Create protobuf broker info
    *
@@ -169,6 +189,26 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
   }
 
   /**
+   * Create protobuf broker info
+   *
+   * @param brokerInfoList  Member Account list
+   * @return proto List
+   */
+  public synchronized BrokerList getRfBrokerInfoList (List<MemberAccount> brokerInfoList) {
+    List<BrokerInfo> rfBrokerList = Collections.synchronizedList(new ArrayList<>());
+    for (MemberAccount brokerInfo : brokerInfoList) {
+      BrokerInfo rfBrokerInfo = getProtoInfo(brokerInfo.getBrokerId(), brokerInfo);
+      rfBrokerList.add(rfBrokerInfo);
+      LOGGER.info("Adding member account rf: " + rfBrokerInfo.toByteString());
+    }
+    BrokerList brokerList = BrokerList.newBuilder()
+        .addAllBrokerInfo(rfBrokerList)
+        .build();
+    LOGGER.info("Broker list rf: " + new String(brokerList.toByteArray()));
+    return brokerList;
+  }
+
+  /**
    * toString method
    *
    * @return membership table String value
@@ -183,6 +223,15 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
           .append(membershipMap.get(brokerId).getLeaderBasedLocation())
           .append(" | ")
           .append(membershipMap.get(brokerId).isLeader())
+          .append("\n");
+    }
+
+    sb.append("TOPIC REPLICATION\n");
+    for (String topic : replicationMap.keySet()) {
+      sb.append(topic)
+          .append(" | ")
+          .append(new String(replicationMap.get(topic).toByteArray()))
+          .append(" | ")
           .append("\n");
     }
     return sb.toString();

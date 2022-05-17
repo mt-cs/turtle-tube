@@ -136,11 +136,11 @@ public final class Membership {
     int getVersion();
 
     /**
-     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
      */
     int getReplicationTableCount();
     /**
-     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
      */
     boolean containsReplicationTable(
         java.lang.String key);
@@ -148,25 +148,25 @@ public final class Membership {
      * Use {@link #getReplicationTableMap()} instead.
      */
     @java.lang.Deprecated
-    java.util.Map<java.lang.String, model.Membership.BrokerInfo>
+    java.util.Map<java.lang.String, model.Membership.BrokerList>
     getReplicationTable();
     /**
-     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
      */
-    java.util.Map<java.lang.String, model.Membership.BrokerInfo>
+    java.util.Map<java.lang.String, model.Membership.BrokerList>
     getReplicationTableMap();
     /**
-     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
      */
 
-    model.Membership.BrokerInfo getReplicationTableOrDefault(
+    model.Membership.BrokerList getReplicationTableOrDefault(
         java.lang.String key,
-        model.Membership.BrokerInfo defaultValue);
+        model.Membership.BrokerList defaultValue);
     /**
-     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
      */
 
-    model.Membership.BrokerInfo getReplicationTableOrThrow(
+    model.Membership.BrokerList getReplicationTableOrThrow(
         java.lang.String key);
   }
   /**
@@ -292,7 +292,7 @@ public final class Membership {
                     ReplicationTableDefaultEntryHolder.defaultEntry);
                 mutable_bitField0_ |= 0x00000002;
               }
-              com.google.protobuf.MapEntry<java.lang.String, model.Membership.BrokerInfo>
+              com.google.protobuf.MapEntry<java.lang.String, model.Membership.BrokerList>
               replicationTable__ = input.readMessage(
                   ReplicationTableDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
               replicationTable_.getMutableMap().put(
@@ -763,18 +763,18 @@ public final class Membership {
     public static final int REPLICATIONTABLE_FIELD_NUMBER = 12;
     private static final class ReplicationTableDefaultEntryHolder {
       static final com.google.protobuf.MapEntry<
-          java.lang.String, model.Membership.BrokerInfo> defaultEntry =
+          java.lang.String, model.Membership.BrokerList> defaultEntry =
               com.google.protobuf.MapEntry
-              .<java.lang.String, model.Membership.BrokerInfo>newDefaultInstance(
+              .<java.lang.String, model.Membership.BrokerList>newDefaultInstance(
                   model.Membership.internal_static_MemberInfo_ReplicationTableEntry_descriptor, 
                   com.google.protobuf.WireFormat.FieldType.STRING,
                   "",
                   com.google.protobuf.WireFormat.FieldType.MESSAGE,
-                  model.Membership.BrokerInfo.getDefaultInstance());
+                  model.Membership.BrokerList.getDefaultInstance());
     }
     private com.google.protobuf.MapField<
-        java.lang.String, model.Membership.BrokerInfo> replicationTable_;
-    private com.google.protobuf.MapField<java.lang.String, model.Membership.BrokerInfo>
+        java.lang.String, model.Membership.BrokerList> replicationTable_;
+    private com.google.protobuf.MapField<java.lang.String, model.Membership.BrokerList>
     internalGetReplicationTable() {
       if (replicationTable_ == null) {
         return com.google.protobuf.MapField.emptyMapField(
@@ -787,7 +787,7 @@ public final class Membership {
       return internalGetReplicationTable().getMap().size();
     }
     /**
-     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
      */
 
     @java.lang.Override
@@ -801,39 +801,39 @@ public final class Membership {
      */
     @java.lang.Override
     @java.lang.Deprecated
-    public java.util.Map<java.lang.String, model.Membership.BrokerInfo> getReplicationTable() {
+    public java.util.Map<java.lang.String, model.Membership.BrokerList> getReplicationTable() {
       return getReplicationTableMap();
     }
     /**
-     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
      */
     @java.lang.Override
 
-    public java.util.Map<java.lang.String, model.Membership.BrokerInfo> getReplicationTableMap() {
+    public java.util.Map<java.lang.String, model.Membership.BrokerList> getReplicationTableMap() {
       return internalGetReplicationTable().getMap();
     }
     /**
-     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
      */
     @java.lang.Override
 
-    public model.Membership.BrokerInfo getReplicationTableOrDefault(
+    public model.Membership.BrokerList getReplicationTableOrDefault(
         java.lang.String key,
-        model.Membership.BrokerInfo defaultValue) {
+        model.Membership.BrokerList defaultValue) {
       if (key == null) { throw new NullPointerException("map key"); }
-      java.util.Map<java.lang.String, model.Membership.BrokerInfo> map =
+      java.util.Map<java.lang.String, model.Membership.BrokerList> map =
           internalGetReplicationTable().getMap();
       return map.containsKey(key) ? map.get(key) : defaultValue;
     }
     /**
-     * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+     * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
      */
     @java.lang.Override
 
-    public model.Membership.BrokerInfo getReplicationTableOrThrow(
+    public model.Membership.BrokerList getReplicationTableOrThrow(
         java.lang.String key) {
       if (key == null) { throw new NullPointerException("map key"); }
-      java.util.Map<java.lang.String, model.Membership.BrokerInfo> map =
+      java.util.Map<java.lang.String, model.Membership.BrokerList> map =
           internalGetReplicationTable().getMap();
       if (!map.containsKey(key)) {
         throw new java.lang.IllegalArgumentException();
@@ -953,9 +953,9 @@ public final class Membership {
         size += com.google.protobuf.CodedOutputStream
           .computeInt32Size(11, version_);
       }
-      for (java.util.Map.Entry<java.lang.String, model.Membership.BrokerInfo> entry
+      for (java.util.Map.Entry<java.lang.String, model.Membership.BrokerList> entry
            : internalGetReplicationTable().getMap().entrySet()) {
-        com.google.protobuf.MapEntry<java.lang.String, model.Membership.BrokerInfo>
+        com.google.protobuf.MapEntry<java.lang.String, model.Membership.BrokerList>
         replicationTable__ = ReplicationTableDefaultEntryHolder.defaultEntry.newBuilderForType()
             .setKey(entry.getKey())
             .setValue(entry.getValue())
@@ -1979,8 +1979,8 @@ public final class Membership {
       }
 
       private com.google.protobuf.MapField<
-          java.lang.String, model.Membership.BrokerInfo> replicationTable_;
-      private com.google.protobuf.MapField<java.lang.String, model.Membership.BrokerInfo>
+          java.lang.String, model.Membership.BrokerList> replicationTable_;
+      private com.google.protobuf.MapField<java.lang.String, model.Membership.BrokerList>
       internalGetReplicationTable() {
         if (replicationTable_ == null) {
           return com.google.protobuf.MapField.emptyMapField(
@@ -1988,7 +1988,7 @@ public final class Membership {
         }
         return replicationTable_;
       }
-      private com.google.protobuf.MapField<java.lang.String, model.Membership.BrokerInfo>
+      private com.google.protobuf.MapField<java.lang.String, model.Membership.BrokerList>
       internalGetMutableReplicationTable() {
         onChanged();;
         if (replicationTable_ == null) {
@@ -2005,7 +2005,7 @@ public final class Membership {
         return internalGetReplicationTable().getMap().size();
       }
       /**
-       * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+       * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
        */
 
       @java.lang.Override
@@ -2019,39 +2019,39 @@ public final class Membership {
        */
       @java.lang.Override
       @java.lang.Deprecated
-      public java.util.Map<java.lang.String, model.Membership.BrokerInfo> getReplicationTable() {
+      public java.util.Map<java.lang.String, model.Membership.BrokerList> getReplicationTable() {
         return getReplicationTableMap();
       }
       /**
-       * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+       * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
        */
       @java.lang.Override
 
-      public java.util.Map<java.lang.String, model.Membership.BrokerInfo> getReplicationTableMap() {
+      public java.util.Map<java.lang.String, model.Membership.BrokerList> getReplicationTableMap() {
         return internalGetReplicationTable().getMap();
       }
       /**
-       * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+       * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
        */
       @java.lang.Override
 
-      public model.Membership.BrokerInfo getReplicationTableOrDefault(
+      public model.Membership.BrokerList getReplicationTableOrDefault(
           java.lang.String key,
-          model.Membership.BrokerInfo defaultValue) {
+          model.Membership.BrokerList defaultValue) {
         if (key == null) { throw new NullPointerException("map key"); }
-        java.util.Map<java.lang.String, model.Membership.BrokerInfo> map =
+        java.util.Map<java.lang.String, model.Membership.BrokerList> map =
             internalGetReplicationTable().getMap();
         return map.containsKey(key) ? map.get(key) : defaultValue;
       }
       /**
-       * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+       * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
        */
       @java.lang.Override
 
-      public model.Membership.BrokerInfo getReplicationTableOrThrow(
+      public model.Membership.BrokerList getReplicationTableOrThrow(
           java.lang.String key) {
         if (key == null) { throw new NullPointerException("map key"); }
-        java.util.Map<java.lang.String, model.Membership.BrokerInfo> map =
+        java.util.Map<java.lang.String, model.Membership.BrokerList> map =
             internalGetReplicationTable().getMap();
         if (!map.containsKey(key)) {
           throw new java.lang.IllegalArgumentException();
@@ -2065,7 +2065,7 @@ public final class Membership {
         return this;
       }
       /**
-       * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+       * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
        */
 
       public Builder removeReplicationTable(
@@ -2079,16 +2079,16 @@ public final class Membership {
        * Use alternate mutation accessors instead.
        */
       @java.lang.Deprecated
-      public java.util.Map<java.lang.String, model.Membership.BrokerInfo>
+      public java.util.Map<java.lang.String, model.Membership.BrokerList>
       getMutableReplicationTable() {
         return internalGetMutableReplicationTable().getMutableMap();
       }
       /**
-       * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+       * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
        */
       public Builder putReplicationTable(
           java.lang.String key,
-          model.Membership.BrokerInfo value) {
+          model.Membership.BrokerList value) {
         if (key == null) { throw new NullPointerException("map key"); }
         if (value == null) {
   throw new NullPointerException("map value");
@@ -2099,11 +2099,11 @@ public final class Membership {
         return this;
       }
       /**
-       * <code>map&lt;string, .BrokerInfo&gt; replicationTable = 12;</code>
+       * <code>map&lt;string, .BrokerList&gt; replicationTable = 12;</code>
        */
 
       public Builder putAllReplicationTable(
-          java.util.Map<java.lang.String, model.Membership.BrokerInfo> values) {
+          java.util.Map<java.lang.String, model.Membership.BrokerList> values) {
         internalGetMutableReplicationTable().getMutableMap()
             .putAll(values);
         return this;
@@ -3151,6 +3151,799 @@ public final class Membership {
 
   }
 
+  public interface BrokerListOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:BrokerList)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+     */
+    java.util.List<model.Membership.BrokerInfo> 
+        getBrokerInfoList();
+    /**
+     * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+     */
+    model.Membership.BrokerInfo getBrokerInfo(int index);
+    /**
+     * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+     */
+    int getBrokerInfoCount();
+    /**
+     * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+     */
+    java.util.List<? extends model.Membership.BrokerInfoOrBuilder> 
+        getBrokerInfoOrBuilderList();
+    /**
+     * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+     */
+    model.Membership.BrokerInfoOrBuilder getBrokerInfoOrBuilder(
+        int index);
+  }
+  /**
+   * Protobuf type {@code BrokerList}
+   */
+  public static final class BrokerList extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:BrokerList)
+      BrokerListOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use BrokerList.newBuilder() to construct.
+    private BrokerList(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private BrokerList() {
+      brokerInfo_ = java.util.Collections.emptyList();
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new BrokerList();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private BrokerList(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              if (!((mutable_bitField0_ & 0x00000001) != 0)) {
+                brokerInfo_ = new java.util.ArrayList<model.Membership.BrokerInfo>();
+                mutable_bitField0_ |= 0x00000001;
+              }
+              brokerInfo_.add(
+                  input.readMessage(model.Membership.BrokerInfo.parser(), extensionRegistry));
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        if (((mutable_bitField0_ & 0x00000001) != 0)) {
+          brokerInfo_ = java.util.Collections.unmodifiableList(brokerInfo_);
+        }
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return model.Membership.internal_static_BrokerList_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return model.Membership.internal_static_BrokerList_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              model.Membership.BrokerList.class, model.Membership.BrokerList.Builder.class);
+    }
+
+    public static final int BROKERINFO_FIELD_NUMBER = 1;
+    private java.util.List<model.Membership.BrokerInfo> brokerInfo_;
+    /**
+     * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+     */
+    @java.lang.Override
+    public java.util.List<model.Membership.BrokerInfo> getBrokerInfoList() {
+      return brokerInfo_;
+    }
+    /**
+     * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+     */
+    @java.lang.Override
+    public java.util.List<? extends model.Membership.BrokerInfoOrBuilder> 
+        getBrokerInfoOrBuilderList() {
+      return brokerInfo_;
+    }
+    /**
+     * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+     */
+    @java.lang.Override
+    public int getBrokerInfoCount() {
+      return brokerInfo_.size();
+    }
+    /**
+     * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+     */
+    @java.lang.Override
+    public model.Membership.BrokerInfo getBrokerInfo(int index) {
+      return brokerInfo_.get(index);
+    }
+    /**
+     * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+     */
+    @java.lang.Override
+    public model.Membership.BrokerInfoOrBuilder getBrokerInfoOrBuilder(
+        int index) {
+      return brokerInfo_.get(index);
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      for (int i = 0; i < brokerInfo_.size(); i++) {
+        output.writeMessage(1, brokerInfo_.get(i));
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      for (int i = 0; i < brokerInfo_.size(); i++) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(1, brokerInfo_.get(i));
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof model.Membership.BrokerList)) {
+        return super.equals(obj);
+      }
+      model.Membership.BrokerList other = (model.Membership.BrokerList) obj;
+
+      if (!getBrokerInfoList()
+          .equals(other.getBrokerInfoList())) return false;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (getBrokerInfoCount() > 0) {
+        hash = (37 * hash) + BROKERINFO_FIELD_NUMBER;
+        hash = (53 * hash) + getBrokerInfoList().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static model.Membership.BrokerList parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static model.Membership.BrokerList parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static model.Membership.BrokerList parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static model.Membership.BrokerList parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static model.Membership.BrokerList parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static model.Membership.BrokerList parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static model.Membership.BrokerList parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static model.Membership.BrokerList parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static model.Membership.BrokerList parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static model.Membership.BrokerList parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static model.Membership.BrokerList parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static model.Membership.BrokerList parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(model.Membership.BrokerList prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code BrokerList}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:BrokerList)
+        model.Membership.BrokerListOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return model.Membership.internal_static_BrokerList_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return model.Membership.internal_static_BrokerList_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                model.Membership.BrokerList.class, model.Membership.BrokerList.Builder.class);
+      }
+
+      // Construct using model.Membership.BrokerList.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+          getBrokerInfoFieldBuilder();
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        if (brokerInfoBuilder_ == null) {
+          brokerInfo_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000001);
+        } else {
+          brokerInfoBuilder_.clear();
+        }
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return model.Membership.internal_static_BrokerList_descriptor;
+      }
+
+      @java.lang.Override
+      public model.Membership.BrokerList getDefaultInstanceForType() {
+        return model.Membership.BrokerList.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public model.Membership.BrokerList build() {
+        model.Membership.BrokerList result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public model.Membership.BrokerList buildPartial() {
+        model.Membership.BrokerList result = new model.Membership.BrokerList(this);
+        int from_bitField0_ = bitField0_;
+        if (brokerInfoBuilder_ == null) {
+          if (((bitField0_ & 0x00000001) != 0)) {
+            brokerInfo_ = java.util.Collections.unmodifiableList(brokerInfo_);
+            bitField0_ = (bitField0_ & ~0x00000001);
+          }
+          result.brokerInfo_ = brokerInfo_;
+        } else {
+          result.brokerInfo_ = brokerInfoBuilder_.build();
+        }
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof model.Membership.BrokerList) {
+          return mergeFrom((model.Membership.BrokerList)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(model.Membership.BrokerList other) {
+        if (other == model.Membership.BrokerList.getDefaultInstance()) return this;
+        if (brokerInfoBuilder_ == null) {
+          if (!other.brokerInfo_.isEmpty()) {
+            if (brokerInfo_.isEmpty()) {
+              brokerInfo_ = other.brokerInfo_;
+              bitField0_ = (bitField0_ & ~0x00000001);
+            } else {
+              ensureBrokerInfoIsMutable();
+              brokerInfo_.addAll(other.brokerInfo_);
+            }
+            onChanged();
+          }
+        } else {
+          if (!other.brokerInfo_.isEmpty()) {
+            if (brokerInfoBuilder_.isEmpty()) {
+              brokerInfoBuilder_.dispose();
+              brokerInfoBuilder_ = null;
+              brokerInfo_ = other.brokerInfo_;
+              bitField0_ = (bitField0_ & ~0x00000001);
+              brokerInfoBuilder_ = 
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                   getBrokerInfoFieldBuilder() : null;
+            } else {
+              brokerInfoBuilder_.addAllMessages(other.brokerInfo_);
+            }
+          }
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        model.Membership.BrokerList parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (model.Membership.BrokerList) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.util.List<model.Membership.BrokerInfo> brokerInfo_ =
+        java.util.Collections.emptyList();
+      private void ensureBrokerInfoIsMutable() {
+        if (!((bitField0_ & 0x00000001) != 0)) {
+          brokerInfo_ = new java.util.ArrayList<model.Membership.BrokerInfo>(brokerInfo_);
+          bitField0_ |= 0x00000001;
+         }
+      }
+
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          model.Membership.BrokerInfo, model.Membership.BrokerInfo.Builder, model.Membership.BrokerInfoOrBuilder> brokerInfoBuilder_;
+
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public java.util.List<model.Membership.BrokerInfo> getBrokerInfoList() {
+        if (brokerInfoBuilder_ == null) {
+          return java.util.Collections.unmodifiableList(brokerInfo_);
+        } else {
+          return brokerInfoBuilder_.getMessageList();
+        }
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public int getBrokerInfoCount() {
+        if (brokerInfoBuilder_ == null) {
+          return brokerInfo_.size();
+        } else {
+          return brokerInfoBuilder_.getCount();
+        }
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public model.Membership.BrokerInfo getBrokerInfo(int index) {
+        if (brokerInfoBuilder_ == null) {
+          return brokerInfo_.get(index);
+        } else {
+          return brokerInfoBuilder_.getMessage(index);
+        }
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public Builder setBrokerInfo(
+          int index, model.Membership.BrokerInfo value) {
+        if (brokerInfoBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureBrokerInfoIsMutable();
+          brokerInfo_.set(index, value);
+          onChanged();
+        } else {
+          brokerInfoBuilder_.setMessage(index, value);
+        }
+        return this;
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public Builder setBrokerInfo(
+          int index, model.Membership.BrokerInfo.Builder builderForValue) {
+        if (brokerInfoBuilder_ == null) {
+          ensureBrokerInfoIsMutable();
+          brokerInfo_.set(index, builderForValue.build());
+          onChanged();
+        } else {
+          brokerInfoBuilder_.setMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public Builder addBrokerInfo(model.Membership.BrokerInfo value) {
+        if (brokerInfoBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureBrokerInfoIsMutable();
+          brokerInfo_.add(value);
+          onChanged();
+        } else {
+          brokerInfoBuilder_.addMessage(value);
+        }
+        return this;
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public Builder addBrokerInfo(
+          int index, model.Membership.BrokerInfo value) {
+        if (brokerInfoBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureBrokerInfoIsMutable();
+          brokerInfo_.add(index, value);
+          onChanged();
+        } else {
+          brokerInfoBuilder_.addMessage(index, value);
+        }
+        return this;
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public Builder addBrokerInfo(
+          model.Membership.BrokerInfo.Builder builderForValue) {
+        if (brokerInfoBuilder_ == null) {
+          ensureBrokerInfoIsMutable();
+          brokerInfo_.add(builderForValue.build());
+          onChanged();
+        } else {
+          brokerInfoBuilder_.addMessage(builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public Builder addBrokerInfo(
+          int index, model.Membership.BrokerInfo.Builder builderForValue) {
+        if (brokerInfoBuilder_ == null) {
+          ensureBrokerInfoIsMutable();
+          brokerInfo_.add(index, builderForValue.build());
+          onChanged();
+        } else {
+          brokerInfoBuilder_.addMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public Builder addAllBrokerInfo(
+          java.lang.Iterable<? extends model.Membership.BrokerInfo> values) {
+        if (brokerInfoBuilder_ == null) {
+          ensureBrokerInfoIsMutable();
+          com.google.protobuf.AbstractMessageLite.Builder.addAll(
+              values, brokerInfo_);
+          onChanged();
+        } else {
+          brokerInfoBuilder_.addAllMessages(values);
+        }
+        return this;
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public Builder clearBrokerInfo() {
+        if (brokerInfoBuilder_ == null) {
+          brokerInfo_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000001);
+          onChanged();
+        } else {
+          brokerInfoBuilder_.clear();
+        }
+        return this;
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public Builder removeBrokerInfo(int index) {
+        if (brokerInfoBuilder_ == null) {
+          ensureBrokerInfoIsMutable();
+          brokerInfo_.remove(index);
+          onChanged();
+        } else {
+          brokerInfoBuilder_.remove(index);
+        }
+        return this;
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public model.Membership.BrokerInfo.Builder getBrokerInfoBuilder(
+          int index) {
+        return getBrokerInfoFieldBuilder().getBuilder(index);
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public model.Membership.BrokerInfoOrBuilder getBrokerInfoOrBuilder(
+          int index) {
+        if (brokerInfoBuilder_ == null) {
+          return brokerInfo_.get(index);  } else {
+          return brokerInfoBuilder_.getMessageOrBuilder(index);
+        }
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public java.util.List<? extends model.Membership.BrokerInfoOrBuilder> 
+           getBrokerInfoOrBuilderList() {
+        if (brokerInfoBuilder_ != null) {
+          return brokerInfoBuilder_.getMessageOrBuilderList();
+        } else {
+          return java.util.Collections.unmodifiableList(brokerInfo_);
+        }
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public model.Membership.BrokerInfo.Builder addBrokerInfoBuilder() {
+        return getBrokerInfoFieldBuilder().addBuilder(
+            model.Membership.BrokerInfo.getDefaultInstance());
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public model.Membership.BrokerInfo.Builder addBrokerInfoBuilder(
+          int index) {
+        return getBrokerInfoFieldBuilder().addBuilder(
+            index, model.Membership.BrokerInfo.getDefaultInstance());
+      }
+      /**
+       * <code>repeated .BrokerInfo brokerInfo = 1;</code>
+       */
+      public java.util.List<model.Membership.BrokerInfo.Builder> 
+           getBrokerInfoBuilderList() {
+        return getBrokerInfoFieldBuilder().getBuilderList();
+      }
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          model.Membership.BrokerInfo, model.Membership.BrokerInfo.Builder, model.Membership.BrokerInfoOrBuilder> 
+          getBrokerInfoFieldBuilder() {
+        if (brokerInfoBuilder_ == null) {
+          brokerInfoBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+              model.Membership.BrokerInfo, model.Membership.BrokerInfo.Builder, model.Membership.BrokerInfoOrBuilder>(
+                  brokerInfo_,
+                  ((bitField0_ & 0x00000001) != 0),
+                  getParentForChildren(),
+                  isClean());
+          brokerInfo_ = null;
+        }
+        return brokerInfoBuilder_;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:BrokerList)
+    }
+
+    // @@protoc_insertion_point(class_scope:BrokerList)
+    private static final model.Membership.BrokerList DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new model.Membership.BrokerList();
+    }
+
+    public static model.Membership.BrokerList getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    private static final com.google.protobuf.Parser<BrokerList>
+        PARSER = new com.google.protobuf.AbstractParser<BrokerList>() {
+      @java.lang.Override
+      public BrokerList parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new BrokerList(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<BrokerList> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<BrokerList> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public model.Membership.BrokerList getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
   private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_MemberInfo_descriptor;
   private static final 
@@ -3171,6 +3964,11 @@ public final class Membership {
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_BrokerInfo_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_BrokerList_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_BrokerList_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -3191,14 +3989,15 @@ public final class Membership {
       ".ReplicationTableEntry\032C\n\024MembershipTabl" +
       "eEntry\022\013\n\003key\030\001 \001(\005\022\032\n\005value\030\002 \001(\0132\013.Bro" +
       "kerInfo:\0028\001\032D\n\025ReplicationTableEntry\022\013\n\003" +
-      "key\030\001 \001(\t\022\032\n\005value\030\002 \001(\0132\013.BrokerInfo:\0028" +
+      "key\030\001 \001(\t\022\032\n\005value\030\002 \001(\0132\013.BrokerList:\0028" +
       "\001\"Z\n\007srcType\022\014\n\010PRODUCER\020\000\022\n\n\006BROKER\020\001\022\014" +
       "\n\010CONSUMER\020\002\022\020\n\014LOADBALANCER\020\003\022\025\n\021CONSUM" +
       "ER_FOLLOWER\020\004\"|\n\nBrokerInfo\022\014\n\004host\030\001 \001(" +
       "\t\022\014\n\004port\030\002 \001(\005\022\022\n\nleaderPort\030\003 \001(\005\022\n\n\002i" +
       "d\030\004 \001(\005\022\017\n\007version\030\005 \001(\005\022\017\n\007isAlive\030\006 \001(" +
-      "\010\022\020\n\010isLeader\030\007 \001(\010B\023\n\005modelB\nMembership" +
-      "b\006proto3"
+      "\010\022\020\n\010isLeader\030\007 \001(\010\"-\n\nBrokerList\022\037\n\nbro" +
+      "kerInfo\030\001 \003(\0132\013.BrokerInfoB\023\n\005modelB\nMem" +
+      "bershipb\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -3228,6 +4027,12 @@ public final class Membership {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_BrokerInfo_descriptor,
         new java.lang.String[] { "Host", "Port", "LeaderPort", "Id", "Version", "IsAlive", "IsLeader", });
+    internal_static_BrokerList_descriptor =
+      getDescriptor().getMessageTypes().get(2);
+    internal_static_BrokerList_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_BrokerList_descriptor,
+        new java.lang.String[] { "BrokerInfo", });
   }
 
   // @@protoc_insertion_point(outer_class_scope)

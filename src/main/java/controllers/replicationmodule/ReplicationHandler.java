@@ -10,9 +10,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import model.MemberAccount;
 import model.MsgInfo;
 import model.MsgInfo.Message;
 import util.Constant;
@@ -48,6 +50,8 @@ public class ReplicationHandler {
     this.topicMap = topicMap;
     this.membershipTable = membershipTable;
   }
+
+  //
 
   /**
    * Send snapshot request at join
@@ -89,6 +93,74 @@ public class ReplicationHandler {
       LOGGER.info("Sent replication for: " + msgFromProducer.getMsgId());
     } else {
       LOGGER.warning("Failed sending replication for: " + msgFromProducer.getMsgId());
+    }
+    return isSent;
+  }
+
+  public synchronized List<MemberAccount> getRfBrokerList() {
+    List<MemberAccount> brokerAccountList = new ArrayList<>();
+    for (var broker : membershipTable) {
+      if (broker.getValue().isLeader()) {
+        continue;
+      }
+      brokerAccountList.add(broker.getValue());
+    }
+    List<MemberAccount> rfBrokerList = Collections.synchronizedList(new ArrayList<>());
+
+    // select random broker up to RF
+    int randomIndex;
+    MemberAccount randomAccount;
+    for (int i = 0; i < Constant.RF; i++) {
+      randomIndex = new Random().nextInt(brokerAccountList.size());
+      randomAccount = brokerAccountList.get(randomIndex);
+      rfBrokerList.add(randomAccount);
+      LOGGER.info(randomAccount.getBrokerId() + " | Added to rf broker list: " + randomAccount.getPubSubLocation());
+    }
+    return rfBrokerList;
+  }
+
+
+  /**
+   * Replicate the topic to rf followers
+   * rather than all followers.
+   *
+   * @param msg           Message info
+   * @param faultInjector fault injector
+   * @return true if sent
+   */
+  public boolean sendReplicateToRFFollowers(MsgInfo.Message msg, FaultInjector faultInjector) {
+    if (membershipTable.size() == 1) {
+      LOGGER.info("No follower connection found.");
+      return true;
+    }
+    if (membershipTable.size() < Constant.RF) {
+      return sendReplicateToAllBrokers(msg, faultInjector);
+    }
+
+    updatePubSubConnection(faultInjector);
+
+    boolean isSent = false;
+
+    for (var broker : membershipTable) {
+      if (broker.getKey() != brokerId) {
+        String targetBroker = broker.getValue().getPubSubLocation();
+        LOGGER.info("Sending replicate to broker: " + targetBroker);
+        ConnectionHandler connectionToPeer = broker.getValue().getPubSubConnection();
+        if (connectionToPeer == null) {
+          connectionToPeer = new ConnectionHandler(broker.getValue().getHost(),
+              broker.getValue().getPort(), faultInjector);
+          MembershipUtils.updatePubSubConnection(membershipTable,
+              msg.getSrcId(), connectionToPeer);
+        }
+        isSent = sendReplicateToBroker(connectionToPeer, msg);
+        if (!isSent) {
+          LOGGER.warning("Msg lost: " + msg.getMsgId() + " to broker: " + targetBroker);
+          PubSubUtils.wait(10000);
+          LOGGER.info("Member key " + broker.getKey() + "is failed: "
+              + membershipTable.notContainsMember(broker.getKey()));
+          return membershipTable.notContainsMember(broker.getKey());
+        }
+      }
     }
     return isSent;
   }

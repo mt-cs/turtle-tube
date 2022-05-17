@@ -108,16 +108,4 @@ public class MembershipUtils {
       }
     }
   }
-
-  /**
-   * Get leader location
-   */
-  public static String getLeaderLocation(MembershipTable membershipTable) {
-    for (var member : membershipTable) {
-      if (member.getValue().isLeader()) {
-        return PubSubUtils.getBrokerLocation(member.getValue().getHost(), member.getValue().getPort());
-      }
-    }
-    return "";
-  }
 }
