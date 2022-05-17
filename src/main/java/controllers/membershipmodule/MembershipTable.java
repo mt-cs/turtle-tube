@@ -225,15 +225,6 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
           .append(membershipMap.get(brokerId).isLeader())
           .append("\n");
     }
-
-    sb.append("TOPIC REPLICATION\n");
-    for (String topic : replicationMap.keySet()) {
-      sb.append(topic)
-          .append(" | ")
-          .append(new String(replicationMap.get(topic).toByteArray()))
-          .append(" | ")
-          .append("\n");
-    }
     return sb.toString();
   }
 }

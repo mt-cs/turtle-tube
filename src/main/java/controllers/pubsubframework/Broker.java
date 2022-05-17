@@ -290,8 +290,9 @@ public class Broker {
 
           if (memberInfo.getState().equals(Constant.ALIVE)) {
             updateMembershipTable(memberInfo.getMembershipTableMap());
-            updateMembershipTableRf(memberInfo.getReplicationTableMap());
 //            LOGGER.info(membershipTable.toString());
+            updateMembershipTableRf(memberInfo.getReplicationTableMap());
+            LOGGER.info(memberInfo.getReplicationTableMap().toString());
             heartBeatScheduler.handleHeartBeatRequest(memberInfo.getId());
           } else if (memberInfo.getState().equals(Constant.CONNECT))  {
             if (isSnapshot && !memberInfo.getIsLeader()) {
@@ -573,7 +574,6 @@ public class Broker {
       }
     }
     replicationHandler.sendLastSnapshot(connection);
-
   }
 
   /**
@@ -665,13 +665,15 @@ public class Broker {
   private void updateMembershipTableRf(Map<String, BrokerList> rfBrokerMap) {
     Membership.BrokerList brokerList;
     for (String topic : rfBrokerMap.keySet()) {
-      brokerList = rfBrokerMap.get(brokerId);
+      brokerList = rfBrokerMap.get(topic);
       if (brokerList == null) {
         LOGGER.info("Broker list is null");
         return;
       }
-      LOGGER.info(new String(brokerList.toByteArray()));
+      LOGGER.info(brokerList.toString());
       membershipTable.getReplicationMap().putIfAbsent(topic, brokerList);
+      LOGGER.info("TOPIC RF");
+      LOGGER.info(membershipTable.getReplicationMap().toString());
     }
   }
 
