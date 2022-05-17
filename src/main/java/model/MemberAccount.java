@@ -189,4 +189,14 @@ public class MemberAccount {
   public void setVersion(int version) {
     this.version = version;
   }
+
+  @Override
+  public String toString() {
+    return "MemberAccount{" +
+        "host='" + host + '\'' +
+        ", port=" + port +
+        ", brokerId=" + brokerId +
+        ", isLeader=" + isLeader +
+        '}';
+  }
 }

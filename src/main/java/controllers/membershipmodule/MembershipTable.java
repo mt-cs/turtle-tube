@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Logger;
 import model.MemberAccount;
 import model.Membership;
@@ -21,6 +22,7 @@ import model.Membership.BrokerList;
 public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccount>> {
   private final ConcurrentMap<Integer, MemberAccount> membershipMap;
   private final ConcurrentMap<Integer, Membership.BrokerInfo> protoMap;
+  private final ConcurrentHashMap<String, List<MemberAccount>> rfMap;
   private final ConcurrentMap<String, BrokerList> replicationMap;
   private volatile boolean isFailure;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
@@ -32,6 +34,7 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
     this.membershipMap = new ConcurrentHashMap<>();
     this.protoMap = new ConcurrentHashMap<>();
     this.replicationMap = new ConcurrentHashMap<>();
+    this.rfMap = new ConcurrentHashMap<>();
   }
 
   @Override
@@ -58,6 +61,7 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
    */
   public synchronized void addRfBrokerList(String topic, List<MemberAccount> memberList) {
     LOGGER.info("Adding topic to replication map: " + topic);
+    rfMap.computeIfAbsent(topic, v -> memberList);
     replicationMap.computeIfAbsent(topic, v -> getRfBrokerInfoList(memberList));
   }
 
@@ -166,6 +170,11 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
     return isFailure;
   }
 
+  /**
+   * Get replication factor protobuf map
+   *
+   * @return replicationMap
+   */
   public ConcurrentMap<String, BrokerList> getReplicationMap() {
     return replicationMap;
   }
@@ -199,14 +208,45 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
     for (MemberAccount brokerInfo : brokerInfoList) {
       BrokerInfo rfBrokerInfo = getProtoInfo(brokerInfo.getBrokerId(), brokerInfo);
       rfBrokerList.add(rfBrokerInfo);
-      LOGGER.info("Adding member account rf: " + rfBrokerInfo.toByteString());
+//      LOGGER.info(rfBrokerInfo.toString());
     }
     BrokerList brokerList = BrokerList.newBuilder()
         .addAllBrokerInfo(rfBrokerList)
         .build();
-    LOGGER.info("Broker list rf: " + new String(brokerList.toByteArray()));
+//    LOGGER.info(brokerList.toString());
     return brokerList;
   }
+
+  /**
+   * Getter for replication factor topic map
+   *
+   * @return rfMap
+   */
+  public ConcurrentHashMap<String, List<MemberAccount>> getRfMap() {
+    return rfMap;
+  }
+
+  public synchronized void setRfMap(String topic, List<MemberAccount> memberList) {
+    if (!memberList.isEmpty()) {
+        List<MemberAccount> memberAccounts = new CopyOnWriteArrayList<>(memberList);
+        rfMap.putIfAbsent(topic, memberAccounts);
+
+//      else {
+//        rfMap.replace(topic, memberList);
+//      }
+//      LOGGER.info(topic + " | " + rfMap.get(topic).toString());
+    }
+  }
+
+  public synchronized void rfToString() {
+    for (String topicKey : rfMap.keySet()) {
+      LOGGER.info(topicKey + " | " + rfMap.get(topicKey).toString());
+    }
+  }
+
+
+
+
 
   /**
    * toString method

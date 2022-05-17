@@ -13,7 +13,7 @@ public class BrokerReplicationApp {
   public void runBrokerApplication (BrokerConfig brokerConfig) {
     Broker broker = new Broker(brokerConfig.getHost(), brokerConfig.getPort(),
                                brokerConfig.getLeaderBasedPort(), brokerConfig.isLeader(),
-                               brokerConfig.getId(), brokerConfig.getFaultType());
+                               brokerConfig.getId(), brokerConfig.getFaultType(), brokerConfig.isRf());
 
     broker.listenToConnections();
     if (!brokerConfig.isLeader()) {

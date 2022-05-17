@@ -66,7 +66,7 @@ public class HeartBeatScheduler {
    */
   public void sendHeartBeat() {
     for (var member : membershipTable) {
-      LOGGER.info(membershipTable.toString());
+//      LOGGER.info(membershipTable.toString());
       if (member.getValue().getBrokerId() == brokerId) {
         continue;
       }
@@ -87,7 +87,7 @@ public class HeartBeatScheduler {
           .putAllReplicationTable(membershipTable.getReplicationMap())
           .build();
       connection.send(memberInfo.toByteArray());
-      LOGGER.info(membershipTable.getReplicationMap().toString());
+//      LOGGER.info(membershipTable.getReplicationMap().toString());
     }
   }
 

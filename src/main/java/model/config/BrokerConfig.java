@@ -15,13 +15,14 @@ public class BrokerConfig extends ReplicationConfig {
   private int targetId;
   private int faultType;
   private String loadBalancerLocation;
+  private boolean isRf;
 
   /**
    * Constructor
    */
   public BrokerConfig(String type, int id, String host, int port, int leaderBasedPort,
       boolean isLeader, String targetBrokerLocation, String targetLeaderBasedLocation, int targetId,
-      int faultType, String loadBalancerLocation) {
+      int faultType, String loadBalancerLocation, boolean isRf) {
     super(type, id);
     this.host = host;
     this.port = port;
@@ -32,6 +33,7 @@ public class BrokerConfig extends ReplicationConfig {
     this.targetId = targetId;
     this.faultType = faultType;
     this.loadBalancerLocation = loadBalancerLocation;
+    this.isRf = isRf;
   }
 
   /**
@@ -140,7 +142,7 @@ public class BrokerConfig extends ReplicationConfig {
   }
 
   /**
-   * Setter for loadBalancerLocation
+   * Setter for fault type
    */
   public void setFaultType(int faultType) {
     this.faultType = faultType;
@@ -153,7 +155,24 @@ public class BrokerConfig extends ReplicationConfig {
     return loadBalancerLocation;
   }
 
+  /**
+   * Setter for loadBalancerLocation
+   */
   public void setLoadBalancerLocation(String loadBalancerLocation) {
     this.loadBalancerLocation = loadBalancerLocation;
+  }
+
+  /**
+   * Getter for rf
+   */
+  public boolean isRf() {
+    return isRf;
+  }
+
+  /**
+   * Setter for rf
+   */
+  public void setRf(boolean rf) {
+    isRf = rf;
   }
 }

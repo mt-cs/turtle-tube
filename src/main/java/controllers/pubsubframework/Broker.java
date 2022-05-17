@@ -31,6 +31,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import model.MemberAccount;
 import model.Membership;
+import model.Membership.BrokerInfo;
 import model.Membership.BrokerList;
 import model.Membership.MemberInfo;
 import model.MsgInfo;
@@ -56,6 +57,7 @@ public class Broker {
   private volatile boolean isLeader;
   private volatile boolean isSyncUp;
   private volatile boolean isSnapshot;
+  private boolean isRf;
   private ConnectionHandler leaderConnection;
   private MembershipTable membershipTable;
   private HeartBeatScheduler heartBeatScheduler;
@@ -65,7 +67,6 @@ public class Broker {
   private final ConcurrentHashMap<Path, List<Integer>> offsetIndexMap;
   private final ConcurrentHashMap<String, List<Message>> topicMap;
   private final ConcurrentHashMap<String, List<Message>> topicMapReplicationSyncUp;
-  private final ConcurrentHashMap<String, List<MemberAccount>> rfMap;
   private volatile boolean isRunning = true;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
@@ -78,7 +79,6 @@ public class Broker {
     this.port = port;
     this.topicMap = new ConcurrentHashMap<>();
     this.topicMapReplicationSyncUp = new ConcurrentHashMap<>();
-    this.rfMap = new ConcurrentHashMap<>();
     this.offsetIndexMap = new ConcurrentHashMap<>();
     this.threadPool
         = Executors.newFixedThreadPool(Constant.NUM_THREADS);
@@ -96,18 +96,18 @@ public class Broker {
    * @param faultType       fault injector type
    */
   public Broker(String host, int pubSubPort, int leaderBasedPort,
-      boolean isLeader, int brokerId, int faultType) {
+      boolean isLeader, int brokerId, int faultType, boolean isRf) {
     this.host = host;
     this.port = pubSubPort;
     this.leaderBasedPort = leaderBasedPort;
     this.brokerId = brokerId;
     this.isLeader = isLeader;
+    this.isRf = isRf;
     this.isSyncUp = true;
     this.isSnapshot = false;
     this.topicMap = new ConcurrentHashMap<>();
     this.topicMapReplicationSyncUp = new ConcurrentHashMap<>();
     this.offsetIndexMap = new ConcurrentHashMap<>();
-    this.rfMap = new ConcurrentHashMap<>();
     this.offsetVersionCount = 0;
     this.threadPool = Executors.newFixedThreadPool(Constant.NUM_THREADS);
     this.faultInjector = new FaultInjectorFactory(faultType).getChaos();
@@ -291,8 +291,11 @@ public class Broker {
           if (memberInfo.getState().equals(Constant.ALIVE)) {
             updateMembershipTable(memberInfo.getMembershipTableMap());
 //            LOGGER.info(membershipTable.toString());
-            updateMembershipTableRf(memberInfo.getReplicationTableMap());
-            LOGGER.info(memberInfo.getReplicationTableMap().toString());
+            if (membershipTable.isLeader(memberInfo.getId())) {
+              updateMembershipTableRf(memberInfo.getReplicationTableMap());
+//            LOGGER.info(memberInfo.getReplicationTableMap().toString());
+//              membershipTable.rfToString();
+            }
             heartBeatScheduler.handleHeartBeatRequest(memberInfo.getId());
           } else if (memberInfo.getState().equals(Constant.CONNECT))  {
             if (isSnapshot && !memberInfo.getIsLeader()) {
@@ -381,6 +384,7 @@ public class Broker {
 
       // update membership replication map
       membershipTable.addRfBrokerList(msgFromProducer.getTopic(), rfBrokerList);
+//      membershipTable.rfToString();
 
     } else {
       topicMap.get(msgFromProducer.getTopic()).add(msgFromProducer);
@@ -392,10 +396,20 @@ public class Broker {
     }
 
     boolean isAckSent = false;
-    if (replicationHandler.sendReplicateToAllBrokers(msgFromProducer, faultInjector)) {
-      isAckSent = replicationHandler.sendAck(connection, PubSubUtils.getBrokerLocation(host, port),
-          msgFromProducer.getOffset(), msgFromProducer.getSrcId(), msgFromProducer.getMsgId());
+    if (!isRf) {
+      if (replicationHandler.sendReplicateToAllBrokers(msgFromProducer, faultInjector)) {
+        isAckSent = replicationHandler.sendAck(connection, PubSubUtils.getBrokerLocation(host, port),
+            msgFromProducer.getOffset(), msgFromProducer.getSrcId(), msgFromProducer.getMsgId());
+      }
+    } else {
+      if (replicationHandler.sendReplicateToRFFollowers(msgFromProducer, faultInjector,
+          membershipTable.getRfMap().get(msgFromProducer.getTopic()))) {
+        isAckSent = replicationHandler.sendAck(connection,
+            PubSubUtils.getBrokerLocation(host, port),
+            msgFromProducer.getOffset(), msgFromProducer.getSrcId(), msgFromProducer.getMsgId());
+      }
     }
+
     if (isAckSent) {
       LOGGER.info("Broker received msgId: " + msgFromProducer.getMsgId());
     }
@@ -591,12 +605,10 @@ public class Broker {
       }
       nextIdx = offsetIndex.indexOf(startingOffset) + 1;
       if (nextIdx >= offsetIndex.size()) {
-        LOGGER.warning("End of file...");
         return null;
       }
       byteSize = offsetIndex.get(nextIdx) - startingOffset;
       if (byteSize < 0) {
-        LOGGER.warning("End of file...");
         return null;
       }
       data = new byte[byteSize];
@@ -663,6 +675,7 @@ public class Broker {
    * @param rfBrokerMap membership table instance for protobuf
    */
   private void updateMembershipTableRf(Map<String, BrokerList> rfBrokerMap) {
+    List<MemberAccount> brokerAccountList = Collections.synchronizedList(new ArrayList<>());
     Membership.BrokerList brokerList;
     for (String topic : rfBrokerMap.keySet()) {
       brokerList = rfBrokerMap.get(topic);
@@ -670,11 +683,30 @@ public class Broker {
         LOGGER.info("Broker list is null");
         return;
       }
-      LOGGER.info(brokerList.toString());
       membershipTable.getReplicationMap().putIfAbsent(topic, brokerList);
-      LOGGER.info("TOPIC RF");
-      LOGGER.info(membershipTable.getReplicationMap().toString());
+//      membershipTable.getReplicationMap().replace(topic, brokerList);
+//      LOGGER.info("TOPIC RF");
+//      LOGGER.info(membershipTable.getReplicationMap().toString());
+      updateRfMap(brokerAccountList, brokerList, topic);
     }
+  }
+
+  private void updateRfMap(List<MemberAccount> brokerAccountList,
+      BrokerList brokerList, String topic) {
+    BrokerInfo brokerInfo;
+    MemberAccount memberAccount;
+
+    for (int i = 0; i < brokerList.getBrokerInfoCount(); i++) {
+      brokerInfo = brokerList.getBrokerInfo(i);
+      memberAccount = new MemberAccount(brokerInfo.getHost(), brokerInfo.getPort(),
+          brokerInfo.getIsLeader(), brokerInfo.getId(), brokerInfo.getLeaderPort());
+      brokerAccountList.add(memberAccount);
+    }
+
+    if (!brokerAccountList.isEmpty()) {
+      membershipTable.setRfMap(topic, brokerAccountList);
+    }
+    brokerAccountList.clear();
   }
 
   /**
