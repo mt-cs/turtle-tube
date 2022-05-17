@@ -309,6 +309,13 @@ public class Broker {
 //          LOGGER.info("Received " + memberInfo.getState()
 //              + " from broker: " + memberInfo.getId() + " | " + brokerLocation);
 
+          if (isLeader && membershipTable.isFollowerFail()) {
+            LOGGER.info("Membership follower failed: " + membershipTable.isFollowerFail());
+            membershipTable.updateNewRfBrokerList();
+            membershipTable.rfToString();
+            LOGGER.info("Membership follower failed: " + membershipTable.isFollowerFail());
+          }
+
         } catch (InvalidProtocolBufferException e) {
           LOGGER.info("Protobuf exception: " + e.getMessage());
         }
@@ -682,9 +689,9 @@ public class Broker {
         return;
       }
       membershipTable.getReplicationMap().putIfAbsent(topic, brokerList);
-//      membershipTable.getReplicationMap().replace(topic, brokerList);
-//      LOGGER.info("TOPIC RF");
-//      LOGGER.info(membershipTable.getReplicationMap().toString());
+      membershipTable.getReplicationMap().replace(topic, brokerList);
+      LOGGER.info("TOPIC RF");
+      LOGGER.info(membershipTable.getReplicationMap().toString());
       updateRfMap(brokerAccountList, brokerList, topic);
     }
   }
@@ -705,6 +712,7 @@ public class Broker {
       membershipTable.setRfMap(topic, brokerAccountList);
     }
     brokerAccountList.clear();
+    membershipTable.rfToString();
   }
 
   /**
