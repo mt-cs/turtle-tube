@@ -13,7 +13,8 @@ public class Constant {
   public static final int NUM_THREADS = 100;
   public static final int NUM_QUEUE = 1000;
   public static final int POLL_FREQ = 3000;
-  public static final int MAX_PULL = 100;
+  public static final int TIMER_COUNT = 30000;
+  public static final int PRODUCER_TIMER_COUNTER = 20000;
   public static final int MAX_BYTES = 8000;
   public static final int MAX_OFFSET_SIZE = 100;
   public static final int TIMEOUT = 10000;
@@ -24,10 +25,18 @@ public class Constant {
   public static final int RF = 2;
   public static final int LB_PORT = 1061;
   public static final double LOSS_RT = 0.2;
+  public static final long HEARTBEAT_INTERVAL = 1000L;
 
   public static final String TYPE_FLAG = "-type";
   public static final String CONFIG_FLAG = "-config";
   public static final int CONFIG_LENGTH = 6;
+
+  public static final int PRODUCER_TYPE = 0;
+  public static final int BROKER_TYPE = 1;
+  public static final int CONSUMER_TYPE = 2;
+  public static final int LOADBALANCER_TYPE = 3;
+  public static final int PUSH_BASED_CONSUMER_TYPE = 4;
+  public static final int SUBSCRIBER = 5;
 
   public static final String PRODUCER = "producer";
   public static final String BROKER = "broker";

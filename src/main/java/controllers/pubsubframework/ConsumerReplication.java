@@ -24,6 +24,7 @@ import util.Constant;
  * @author marisatania
  */
 public class ConsumerReplication {
+  private final int id;
   private final String loadBalancerLocation;
   private String leaderLocation;
   private String followerLocation;
@@ -47,7 +48,8 @@ public class ConsumerReplication {
    * @param startingPosition      int poll starting position
    */
   public ConsumerReplication(String loadBalancerLocation, String topic,
-                             int startingPosition, String model, String read) {
+                             int startingPosition, String model,
+                             String read, int id) {
     this.blockingQueue = new BlockingQueue<>(Constant.NUM_QUEUE);
     this.loadBalancerLocation = loadBalancerLocation;
     this.leaderLocation = "";
@@ -55,6 +57,7 @@ public class ConsumerReplication {
     this.topic = topic;
     this.model = model;
     this.read = read;
+    this.id = id;
     this.startingPosition = startingPosition;
     this.isRunning = true;
     this.isUpdatingMembership = false;
@@ -68,6 +71,17 @@ public class ConsumerReplication {
       connectToBroker(followerLocation);
     }
 
+    sendToBroker(topic, startingPosition, model);
+  }
+
+  /**
+   * Handle pull and push model request
+   *
+   * @param topic             msg topic
+   * @param startingPosition  offset
+   * @param model             push or pull model
+   */
+  private void sendToBroker(String topic, int startingPosition, String model) {
     if (model.equals(Constant.PULL)) {
       pollFromBroker(Constant.POLL_FREQ);
     } else {
@@ -100,7 +114,7 @@ public class ConsumerReplication {
    */
   public void sendPushBasedRequestToBroker (String topic, int startingOffset) {
     Message msgInfo = Message.newBuilder()
-        .setTypeValue(5)
+        .setTypeValue(Constant.SUBSCRIBER)
         .setTopic(topic)
         .setStartingPosition(startingOffset)
         .build();
@@ -117,7 +131,7 @@ public class ConsumerReplication {
    */
   public void sendRequestToBroker (String topic, int startingPosition) {
     Message msgInfo = Message.newBuilder()
-        .setTypeValue(2)
+        .setTypeValue(Constant.CONSUMER_TYPE)
         .setTopic(topic)
         .setStartingPosition(startingPosition)
         .build();
@@ -156,15 +170,7 @@ public class ConsumerReplication {
       sendRequestToBroker(topic, startingPosition);
       LOGGER.info("Fetching from broker " + leaderLocation + "...");
       if (isUpdatingMembership) {
-        LOGGER.info("Reconnecting...");
-        if (read.equals(Constant.LEADER)) {
-          PubSubUtils.wait(30000);
-          leaderLocation = getLeaderAddress();
-          connectToBroker(leaderLocation);
-        } else if (read.equals(Constant.FOLLOWER)) {
-          followerLocation = getFollowerAddress();
-          connectToBroker(followerLocation);
-        }
+        reconnectConsumer();
         isUpdatingMembership = false;
       }
     }
@@ -195,8 +201,18 @@ public class ConsumerReplication {
           msgFromBroker = Message.parseFrom(msgByte);
         } catch (InvalidProtocolBufferException e) {
           LOGGER.warning("Error in getting msg from broker: " + e.getMessage());
+          reconnectConsumer();
+          sendToBroker(topic, startingPosition, model);
         }
-        if (msgFromBroker != null && msgFromBroker.getTypeValue() == 1) {
+        if (msgFromBroker != null && msgFromBroker.getTypeValue() == Constant.BROKER_TYPE) {
+          if (read.equals(Constant.FOLLOWER) &&
+              msgFromBroker.getTopic().equals(Constant.FOLLOWER)) {
+            PubSubUtils.wait(Constant.TIMER_COUNT);
+            followerLocation = msgFromBroker.getSrcId();
+            LOGGER.info("Receive follower info: " + msgFromBroker.getId() + " | " + followerLocation);
+            connectToBroker(msgFromBroker.getSrcId());
+            sendToBroker(topic, startingPosition, model);
+          }
           if (msgFromBroker.getTopic().equals(Constant.CLOSE)) {
              startingPosition = offsetCount;
              LOGGER.info("Current starting offset: " + startingPosition);
@@ -218,48 +234,36 @@ public class ConsumerReplication {
     }
   }
 
-  private void reconnectPushBasedConsumer() {
-    if (model.equals(Constant.PUSH)) {
-      if (read.equals(Constant.LEADER)) {
-        PubSubUtils.wait(30000);
-        leaderLocation = getLeaderAddress();
-        if(!leaderLocation.equals("")) {
-          connectToBroker(leaderLocation);
-        }
-      } else if (read.equals(Constant.FOLLOWER)) {
-        followerLocation = getFollowerAddress();
-        connectToBroker(followerLocation);
-      }
-      isUpdatingMembership = false;
-      sendRequestToBroker(topic, startingPosition);
+  /**
+   * Send request to loadBalancer
+   *
+   * @param type consumer type
+   * @return brokerLocation
+   */
+  private String sendRequestToLoadBalancer(int type) {
+    ReplicationUtils.sendAddressRequest(loadBalancerConnection, type, id);
+
+    FutureTask<MemberInfo> future = new FutureTask<>(() ->
+        MemberInfo.parseFrom(loadBalancerConnection.receive()));
+    executor.execute(future);
+
+    String host = "";
+    int port = 0;
+    try {
+      host = future.get().getHost();
+      port = future.get().getPort();
+    } catch (ExecutionException | InterruptedException e) {
+      LOGGER.warning("Error in getting address" + e.getMessage());
     }
+    return PubSubUtils.getBrokerLocation(host, port);
   }
 
   /**
    * Get leader pubsub location
    */
   public String getFollowerAddress() {
-    MemberInfo followerAddressRequest = MemberInfo.newBuilder()
-        .setTypeValue(4)
-        .build();
-    loadBalancerConnection.send(followerAddressRequest.toByteArray());
     LOGGER.info("Sending follower address request...");
-
-    FutureTask<MemberInfo> future = new FutureTask<>(() ->
-        MemberInfo.parseFrom(loadBalancerConnection.receive()));
-    executor.execute(future);
-
-    String followerHost = "";
-    int followerPort = 0;
-    try {
-      followerHost = future.get().getHost();
-      followerPort = future.get().getPort();
-    } catch (ExecutionException | InterruptedException e) {
-      e.printStackTrace();
-    }
-
-    String brokerLocation
-        = PubSubUtils.getBrokerLocation(followerHost, followerPort);
+    String brokerLocation = sendRequestToLoadBalancer(Constant.PUSH_BASED_CONSUMER_TYPE);
     if (!brokerLocation.equals(followerLocation)) {
       followerLocation = brokerLocation;
     } else {
@@ -273,23 +277,7 @@ public class ConsumerReplication {
    * Get leader pubsub location
    */
   public String getLeaderAddress() {
-    ReplicationUtils.sendAddressRequest(loadBalancerConnection);
-
-    FutureTask<MemberInfo> future = new FutureTask<>(() ->
-        MemberInfo.parseFrom(loadBalancerConnection.receive()));
-    executor.execute(future);
-
-    String leaderHost = "";
-    int leaderPort = 0;
-    try {
-      leaderHost = future.get().getHost();
-      leaderPort = future.get().getPort();
-    } catch (ExecutionException | InterruptedException e) {
-      e.printStackTrace();
-    }
-
-    String brokerLocation
-        = PubSubUtils.getBrokerLocation(leaderHost, leaderPort);
+    String brokerLocation = sendRequestToLoadBalancer(Constant.CONSUMER_TYPE);
     if (!brokerLocation.equals(leaderLocation)) {
       leaderLocation = brokerLocation;
     } else {
@@ -297,6 +285,41 @@ public class ConsumerReplication {
     }
     LOGGER.info("Leader location: " + leaderLocation);
     return leaderLocation;
+  }
+
+  /**
+   * Reconnect consumer
+   */
+  private void reconnectConsumer() {
+    LOGGER.info("Reconnecting...");
+    PubSubUtils.wait(Constant.TIMER_COUNT);
+    if (read.equals(Constant.LEADER)) {
+      leaderLocation = getLeaderAddress();
+      connectToBroker(leaderLocation);
+    } else if (read.equals(Constant.FOLLOWER)) {
+      followerLocation = getFollowerAddress();
+      connectToBroker(followerLocation);
+    }
+  }
+
+  /**
+   * Reconnect the push based consumer upon failure
+   */
+  private void reconnectPushBasedConsumer() {
+    if (model.equals(Constant.PUSH)) {
+      PubSubUtils.wait(Constant.TIMER_COUNT);
+      if (read.equals(Constant.LEADER)) {
+        leaderLocation = getLeaderAddress();
+        if(!leaderLocation.equals("")) {
+          connectToBroker(leaderLocation);
+        }
+      } else if (read.equals(Constant.FOLLOWER)) {
+        followerLocation = getFollowerAddress();
+        connectToBroker(followerLocation);
+      }
+      isUpdatingMembership = false;
+      sendRequestToBroker(topic, startingPosition);
+    }
   }
 
 }

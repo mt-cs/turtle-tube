@@ -1,5 +1,6 @@
 <h1 align="center" style="display: block; font-size: 2.5em; font-weight: bold; margin-block-start: 1em; margin-block-end: 1em;">
-  <br><br><strong>TURTLE TUBE</strong>
+  <br><br><strong>TURTLE TUBE</strong><br>
+  <img src="turtle-animal-svgrepo-com.svg" style="width:200px"/>
   <br><br>Fault-Tolerant Leader-based Publish/Subscribe Replication System
 </h1>
 

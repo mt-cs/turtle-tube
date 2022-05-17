@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -48,44 +49,29 @@ import util.ReplicationAppUtils;
  */
 public class Broker {
   private final ExecutorService threadPool;
-  private String host;
   private String leaderLocation;
+  private final String host;
   private final int port;
-  private int leaderBasedPort;
-  private int brokerId;
+  private final int leaderBasedPort;
+  private final int brokerId;
   private int offsetVersionCount;
 
-  private volatile boolean isLeader;
+  private boolean isLeader;
   private volatile boolean isSyncUp;
   private volatile boolean isSnapshot;
-  private boolean isRf;
+  private final boolean isRf;
   private ConnectionHandler leaderConnection;
-  private MembershipTable membershipTable;
-  private HeartBeatScheduler heartBeatScheduler;
-  private BullyElectionManager bullyElection;
-  private ReplicationHandler replicationHandler;
-  private ReplicationFactor replicationFactor;
-  private FaultInjector faultInjector;
+  private final MembershipTable membershipTable;
+  private final HeartBeatScheduler heartBeatScheduler;
+  private final BullyElectionManager bullyElection;
+  private final ReplicationHandler replicationHandler;
+  private final ReplicationFactor replicationFactor;
+  private final FaultInjector faultInjector;
   private final ConcurrentHashMap<Path, List<Integer>> offsetIndexMap;
   private final ConcurrentHashMap<String, List<Message>> topicMap;
   private final ConcurrentHashMap<String, List<Message>> topicMapReplicationSyncUp;
   private volatile boolean isRunning = true;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
-
-  /**
-   * Constructor for basic broker
-   *
-   * @param port broker port number
-   */
-  public Broker(int port) {
-    this.port = port;
-    this.topicMap = new ConcurrentHashMap<>();
-    this.topicMapReplicationSyncUp = new ConcurrentHashMap<>();
-    this.offsetIndexMap = new ConcurrentHashMap<>();
-    this.threadPool
-        = Executors.newFixedThreadPool(Constant.NUM_THREADS);
-    this.offsetVersionCount = 0;
-  }
 
   /**
    * Constructor for leader based broker
@@ -113,19 +99,20 @@ public class Broker {
     this.offsetVersionCount = 0;
     this.threadPool = Executors.newFixedThreadPool(Constant.NUM_THREADS);
     this.faultInjector = new FaultInjectorFactory(faultType).getChaos();
-    this.membershipTable = new MembershipTable();
+    this.membershipTable = new MembershipTable(isRf);
 
     ConnectionHandler loadBalancerConnection =
         new ConnectionHandler(Constant.LOCALHOST, Constant.LB_PORT, faultInjector);
     MembershipUtils.addSelfToMembershipTable(host, port,
         leaderBasedPort, isLeader, brokerId, membershipTable);
-    MembershipUtils.sendBrokerLocation(loadBalancerConnection, brokerId, host, port, isLeader);
+    MembershipUtils.sendBrokerLocation(loadBalancerConnection, brokerId,
+        host, port, isLeader, Constant.BROKER_TYPE);
     this.replicationHandler = new ReplicationHandler(membershipTable, host, port, brokerId, topicMap);
     this.replicationFactor = new ReplicationFactor(membershipTable);
     this.bullyElection = new BullyElectionManager(brokerId,
         membershipTable, loadBalancerConnection);
-    this.heartBeatScheduler = new HeartBeatScheduler(brokerId,
-        membershipTable, 1000L, bullyElection, replicationFactor);
+    this.heartBeatScheduler = new HeartBeatScheduler(brokerId, membershipTable,
+        Constant.HEARTBEAT_INTERVAL, bullyElection, replicationFactor, isRf);
     this.heartBeatScheduler.start();
   }
 
@@ -178,91 +165,30 @@ public class Broker {
           msg = Message.parseFrom(msgByte);
         } catch (InvalidProtocolBufferException e) {
           LOGGER.warning("Error in getting msg: " + e.getMessage());
-          if (isSyncUp) {
-            LOGGER.warning("Sync up fail!");
-            topicMap.clear();
-            topicMapReplicationSyncUp.clear();
-            for (Path filePath : offsetIndexMap.keySet()) {
-              try {
-                Files.delete(filePath);
-              } catch (IOException ex) {
-                ex.printStackTrace();
-              }
-            }
-            leaderConnection = PubSubUtils.connectToBroker(leaderLocation, faultInjector);
-            sendSnapshotToBrokerFromOffset(leaderConnection, leaderLocation);
-            LOGGER.info("Resent snapshot request");
-            threadPool.execute(() -> receiveMsg(leaderConnection, true));
-          }
+          handleSyncUp();
           continue;
         }
         if (msg != null) {
           if (msg.getTypeValue() == 0) {
+            handleNewRfElection();
             if (msg.getTopic().equals(Constant.CLOSE)) {
               isReceiving = false;
-              PubSubUtils.wait(10000);
-              MsgInfo.Message lastMsg = Message.newBuilder()
-                  .setTypeValue(1)
-                  .setTopic("close")
-                  .build();
-              replicationHandler.sendReplicateToAllBrokers(lastMsg, faultInjector);
-              flushAllToDisk();
+              handleLastMessage();
             } else {
               receiveFromProducer(connection, msg);
             }
           } else if (msg.getTypeValue() == 1) {
-            Path filePathSave = null;
-            if (msg.getTopic().equals(Constant.CLOSE)) {
-              PubSubUtils.wait(10000);
-              flushAllToDisk();
-              continue;
-            }
-            if (!msg.getTopic().equals(Constant.LAST_SNAPSHOT)) {
-              filePathSave = Path.of(ReplicationAppUtils.getTopicFile(msg.getTopic()));
-            }
-            if (!msg.getIsSnapshot()) {
-
-              if (isSyncUp) {
-                // Continue getting replication during sync up
-                LOGGER.info(msg.getMsgId() + " | Sync Up! Received msgInfo replicate from broker: " + msg.getSrcId());
-                replicationHandler.storeMsgToTopicMap(msg, topicMapReplicationSyncUp);
-              } else {
-                // Normal replication
-                LOGGER.info(msg.getMsgId() + " | Received msgInfo replicate from broker: " + msg.getSrcId());
-                replicationHandler.storeMsgToTopicMap(msg, topicMap);
-                if (topicMap.get(msg.getTopic()).size() > Constant.MAX_OFFSET_SIZE) {
-                  flushToDisk(topicMap.get(msg.getTopic()), filePathSave);
-                }
-              }
-            } else {
-              // SYNC UP
-              isSyncUp = true;
-              if (msg.getTopic().equals(Constant.LAST_SNAPSHOT)) {
-                isSyncUp = false;
-                // End of snapshot merge topic map of snapshot and replication
-                LOGGER.info("Merging topic map catch up...");
-                replicationHandler.copyToTopicMap(topicMapReplicationSyncUp);
-                topicMapReplicationSyncUp.clear();
-                LOGGER.info("Sync up completed!");
-                flushAllToDisk();
-                continue;
-              }
-              // Getting snapshot to catch up
-              LOGGER.info(msg.getMsgId() + " | Sync Up! Received msgInfo snapshot from broker: " + msg.getSrcId());
-              flushEachMsgToFile(msg);
-            }
-            replicationHandler.sendAck(connection, PubSubUtils.getBrokerLocation(host, port),
-                msg.getOffset(), msg.getSrcId(), msg.getMsgId());
-            membershipTable.updateBrokerVersion(brokerId, offsetVersionCount);
+            handleBrokerReplication(connection, msg);
           } else if (msg.getTypeValue() == 2) {
-            LOGGER.info("Received request from customer for message topic/offset: "
+            handleNewRfElection();
+            LOGGER.info("Received request from consumer for message topic/offset: "
                 + msg.getTopic() + "/ " + msg.getStartingPosition());
             sendToConsumerFromOffset(connection, msg);
           } else if (msg.getTypeValue() == 3) {
             LOGGER.info("Received ACK from: " + msg.getSrcId() + " for msgId: " + msg.getMsgId());
           } else if (msg.getTypeValue() == 4) {
             LOGGER.info("Received snapshot request from broker: " + msg.getSrcId());
-            MembershipUtils.updatePubSubConnection(membershipTable, msg.getSrcId(), connection);
+            MembershipUtils.setPubSubConnection(membershipTable, msg.getId(), connection);
             sendSnapshotToBrokerFromOffset(connection, msg.getSrcId());
           } else if (msg.getTypeValue() == 5) {
             LOGGER.info("Received request from Push-Based customer for message topic/offset: "
@@ -287,16 +213,11 @@ public class Broker {
       if (brokerInfo != null) {
         try {
           MemberInfo memberInfo = MemberInfo.parseFrom(brokerInfo);
-          String brokerLocation =
-              PubSubUtils.getBrokerLocation(memberInfo.getHost(), memberInfo.getLeaderPort());
 
           if (memberInfo.getState().equals(Constant.ALIVE)) {
             updateMembershipTable(memberInfo.getMembershipTableMap());
-//            LOGGER.info(membershipTable.toString());
-            if (membershipTable.isLeader(memberInfo.getId())) {
+            if (isRf && membershipTable.isLeader(memberInfo.getId())) {
               updateMembershipTableRf(memberInfo.getReplicationTableMap());
-//            LOGGER.info(memberInfo.getReplicationTableMap().toString());
-//              membershipTable.rfToString();
             }
             heartBeatScheduler.handleHeartBeatRequest(memberInfo.getId());
           } else if (memberInfo.getState().equals(Constant.CONNECT))  {
@@ -310,25 +231,9 @@ public class Broker {
           } else if (memberInfo.getState().equals(Constant.VICTORY)) {
             bullyElection.handleVictoryRequest(memberInfo.getId());
           }
-//          LOGGER.info("Received " + memberInfo.getState()
-//              + " from broker: " + memberInfo.getId() + " | " + brokerLocation);
-
-          if (isLeader && membershipTable.isFollowerFail()) {
-            LOGGER.info("Membership follower failed: " + membershipTable.isFollowerFail());
-            Map<String, List<MemberAccount>> newRfFollowers = replicationFactor.updateNewRfBrokerList();
-            replicationFactor.rfToString();
-            for (String topic : newRfFollowers.keySet()) {
-              flushTopicToOffset(topic);
-              for (MemberAccount newMember : newRfFollowers.get(topic)) {
-                LOGGER.info("Sending snapshot topic: " + topic + " to: " + newMember.getPubSubLocation());
-                sendSnapshotOfTopicToRfFollowers(topic,
-                    membershipTable.get(newMember.getBrokerId()).getPubSubConnection(),
-                    newMember.getPubSubLocation());
-              }
-            }
-            LOGGER.info("Membership follower failed: " + membershipTable.isFollowerFail());
+          if (isRf) {
+            handleRfFollowerFailure();
           }
-
         } catch (InvalidProtocolBufferException e) {
           LOGGER.info("Protobuf exception: " + e.getMessage());
         }
@@ -354,7 +259,7 @@ public class Broker {
     LOGGER.info("Connected to " + targetLeaderBasedConnection);
 
     MemberInfo memberInfo = MemberInfo.newBuilder()
-        .setTypeValue(1)
+        .setTypeValue(Constant.BROKER_TYPE)
         .setId(brokerId)
         .setHost(host)
         .setPort(port)
@@ -382,6 +287,94 @@ public class Broker {
     }
   }
 
+
+  /**
+   * Send message to consumer using offset
+   *
+   * @param msg protobuf message
+   */
+  public void sendToConsumerFromOffset(ConnectionHandler connection, Message msg) {
+    if (offsetIndexMap.size() == 0) {
+      return;
+    }
+    String fileName = ReplicationAppUtils.getTopicFile(msg.getTopic());
+    Path filePath = Path.of(fileName);
+    if (isRf && !Files.exists(filePath)) {
+      MemberAccount followerAccount = membershipTable.getRfMap().get(msg.getTopic()).get(0);
+      MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
+          .setTypeValue(Constant.BROKER_TYPE)
+          .setTopic(Constant.FOLLOWER)
+          .setId(followerAccount.getBrokerId())
+          .setSrcId(PubSubUtils.getBrokerLocation(followerAccount.getHost(), followerAccount.getPort()))
+          .build();
+      connection.send(msgInfo.toByteArray());
+      return;
+    }
+    int startingOffset = msg.getStartingPosition();
+    int countOffsetSent = 0, offset;
+    while (countOffsetSent <= Constant.MAX_BYTES) {
+
+      byte[] data = getBytes(startingOffset, fileName,
+          offsetIndexMap.get(filePath), msg.getTopic());
+      if (data == null) {
+        continue;
+      }
+      offset = data.length;
+      startingOffset += offset;
+      countOffsetSent += offset;
+      MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
+          .setTypeValue(Constant.BROKER_TYPE)
+          .setTopic(msg.getTopic())
+          .setData(ByteString.copyFrom(data))
+          .setOffset(offset)
+          .build();
+      if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
+        return;
+      }
+      LOGGER.info("Sending data to consumer: " + ByteString.copyFrom(data));
+      connection.send(msgInfo.toByteArray());
+    }
+    sendClose(connection);
+  }
+
+  /**
+   * Sending message to push-based customer
+   * from starting position to max pull
+   *
+   * @param startingOffset initial message offset
+   * @param topic          topic
+   */
+  public void sendToPushBasedConsumer(int startingOffset, String topic,
+      ConnectionHandler connection, String fileName) {
+    LOGGER.info("Sending data to push-based consumer: ");
+    int countOffsetSent = 0, offset;
+    while (countOffsetSent <= PubSubUtils.getFileSize(Path.of(fileName))) {
+      byte[] data = getBytes(startingOffset, fileName,
+          offsetIndexMap.get(Path.of(fileName)), topic);
+      if (data == null) {
+        return;
+      }
+      offset = data.length;
+      if (offset == 0) {
+        return;
+      }
+      startingOffset += offset;
+      countOffsetSent += offset;
+      MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
+          .setTypeValue(Constant.BROKER_TYPE)
+          .setTopic(topic)
+          .setData(ByteString.copyFrom(data))
+          .setOffset(offset)
+          .build();
+      if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
+        return;
+      }
+      LOGGER.info("Sent data: " + ByteString.copyFrom(data));
+      connection.send(msgInfo.toByteArray());
+    }
+    sendClose(connection);
+  }
+
   /**
    * Receive message from producer
    *
@@ -396,19 +389,16 @@ public class Broker {
       LOGGER.info(PubSubUtils.getMsgTopicInfo(msgFromProducer));
       topicMap.put(msgFromProducer.getTopic(), msgList);
       LOGGER.info("New Topic List: " + msgFromProducer.getTopic() + " added to broker's topicMap");
-
-      // Set up replication rf broker List
-      List<MemberAccount> rfBrokerList = replicationHandler.getRfBrokerList();
-
-      // update membership replication map
-      replicationFactor.addRfBrokerList(msgFromProducer.getTopic(), rfBrokerList);
-      replicationFactor.rfToString();
-      LOGGER.info(membershipTable.getReplicationMap().toString());
+      if (isRf) {
+        List<MemberAccount> rfBrokerList = replicationHandler.getRfBrokerList();
+        replicationFactor.addRfBrokerList(msgFromProducer.getTopic(), rfBrokerList);
+        replicationFactor.logRf();
+        LOGGER.info(membershipTable.getReplicationMap().toString());
+      }
     } else {
       topicMap.get(msgFromProducer.getTopic()).add(msgFromProducer);
       LOGGER.info(PubSubUtils.getMsgTopicInfo(msgFromProducer));
     }
-
     if (topicMap.get(msgFromProducer.getTopic()).size() > Constant.MAX_OFFSET_SIZE) {
       flushToDisk(topicMap.get(msgFromProducer.getTopic()), filePathSave);
     }
@@ -427,12 +417,355 @@ public class Broker {
             msgFromProducer.getOffset(), msgFromProducer.getSrcId(), msgFromProducer.getMsgId());
       }
     }
-
     if (isAckSent) {
       LOGGER.info("Broker received msgId: " + msgFromProducer.getMsgId());
     }
   }
 
+  /**
+   * Handle offset sync up process
+   */
+  private void handleSyncUp() {
+    if (!isSyncUp) {
+      return;
+    }
+    LOGGER.warning("Sync up fail!");
+    topicMap.clear();
+    topicMapReplicationSyncUp.clear();
+    deleteOffsetFiles();
+    leaderConnection = PubSubUtils.connectToBroker(leaderLocation, faultInjector);
+    sendSnapshotToBrokerFromOffset(leaderConnection, leaderLocation);
+    LOGGER.info("Resent snapshot request");
+    threadPool.execute(() -> receiveMsg(leaderConnection, true));
+  }
+
+  /**
+   * Handle broker replication
+   *
+   * @param connection broker connection
+   * @param msg        protobuf msg
+   */
+  private void handleBrokerReplication(ConnectionHandler connection, Message msg) {
+    Path filePathSave = null;
+    if (msg.getTopic().equals(Constant.CLOSE)) {
+      PubSubUtils.wait(10000);
+      flushAllToDisk();
+      return;
+    }
+    if (!msg.getTopic().equals(Constant.LAST_SNAPSHOT)) {
+      filePathSave = Path.of(ReplicationAppUtils.getTopicFile(msg.getTopic()));
+    }
+    if (!msg.getIsSnapshot()) {
+      if (isSyncUp) {
+        // Continue getting replication during sync up
+        LOGGER.info(msg.getMsgId() + " | Sync Up! Received msgInfo replicate from broker: " + msg.getSrcId());
+        replicationHandler.storeMsgToTopicMap(msg, topicMapReplicationSyncUp);
+      } else {
+        // Normal replication
+        LOGGER.info(msg.getMsgId() + " | Received msgInfo replicate from broker: " + msg.getSrcId());
+        replicationHandler.storeMsgToTopicMap(msg, topicMap);
+        if (topicMap.get(msg.getTopic()).size() > Constant.MAX_OFFSET_SIZE) {
+          flushToDisk(topicMap.get(msg.getTopic()), filePathSave);
+        }
+      }
+    } else {
+      isSyncUp = true;
+      if (msg.getTopic().equals(Constant.LAST_SNAPSHOT)) {
+        handleLastSnapshot();
+        return;
+      }
+      LOGGER.info(msg.getMsgId() + " | Sync Up! Received msgInfo snapshot from broker: " + msg.getSrcId());
+      flushEachMsgToFile(msg);
+    }
+    replicationHandler.sendAck(connection, PubSubUtils.getBrokerLocation(host, port),
+        msg.getOffset(), msg.getSrcId(), msg.getMsgId());
+    membershipTable.updateBrokerVersion(brokerId, offsetVersionCount);
+  }
+
+  /**
+   * Handle election as the new leader
+   */
+  private void handleNewRfElection() {
+    if (isRf && membershipTable.getMembershipMap().get(brokerId).isLeader()) {
+      if (!isLeader) {
+        LOGGER.info("Setting up new leader... ");
+        LOGGER.info(membershipTable.getReplicationMap().toString());
+        getSnapshotFromFollower();
+        replicationFactor.updateNewRfBrokerList();
+        replicationFactor.resetReplicationMap();
+        isLeader = true;
+      } else {
+        replicationFactor.leaderUpdateRfMap();
+      }
+    }
+  }
+
+  /**
+   * End of snapshot merge topic map of snapshot and replication
+   */
+  private void handleLastSnapshot() {
+    isSyncUp = false;
+    LOGGER.info("Merging topic map catch up...");
+    replicationHandler.copyToTopicMap(topicMapReplicationSyncUp);
+    topicMapReplicationSyncUp.clear();
+    LOGGER.info("Sync up completed!");
+    flushAllToDisk();
+  }
+
+  /**
+   * Send snapshot to new rf followers using offset
+   */
+  public void sendSnapshotOfTopicToRfFollowers(String topic,
+      ConnectionHandler connection, String srcId) {
+    Path filePath = Path.of(ReplicationAppUtils.getTopicFile(topic));
+    LOGGER.info("File path: " + filePath);
+    Path fileCopyPath = ReplicationUtils.copyTopicFiles(filePath, srcId);
+    LOGGER.info("File path: " + fileCopyPath);
+    List<Integer> offsetIndexMapCopy =
+        new CopyOnWriteArrayList<>(offsetIndexMap.get(filePath));
+
+    LOGGER.info("Sending snapshot for topic: " + topic);
+    int countOffsetSent = 0, id = 1, offset;
+    boolean isSent;
+
+    while (countOffsetSent <= PubSubUtils.getFileSize(fileCopyPath)) {
+      byte[] data = getBytes(countOffsetSent,
+          fileCopyPath.getFileName().toString(), offsetIndexMapCopy, topic);
+      if (data == null) {
+        break;
+      }
+      String log = ByteString.copyFrom(data).toStringUtf8();
+      offset = data.length;
+      countOffsetSent += offset;
+
+      Message msgInfo = PubSubUtils.getSnapshotMsg(id, offset, data, log, host, port, brokerId);
+      if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
+        break;
+      }
+      isSent = connection.send(msgInfo.toByteArray());
+      if (isSent) {
+        LOGGER.info(id++ + " | Sent snapshot of: " + new String(data));
+      } else {
+        LOGGER.warning("Sent failed for msgId: " + id++);
+      }
+    }
+    PubSubUtils.deleteFilePath(fileCopyPath);
+    replicationHandler.sendLastSnapshot(connection);
+  }
+
+  /**
+   * Send snapshot to broker using offset
+   */
+  public void sendSnapshotToBrokerFromOffset(ConnectionHandler connection, String srcId) {
+    Map<String, List<Message>> currentTopicMap = topicMap.entrySet().stream()
+        .collect(Collectors.toMap(Entry::getKey, e -> List.copyOf(e.getValue())));
+
+    // Flush current topicMap to Offset
+    for (Map.Entry<String, List<Message>> topic : currentTopicMap.entrySet()) {
+      for (Message msg : topic.getValue()) {
+        flushEachMsgToFile(msg);
+        topicMap.get(msg.getTopic()).remove(msg);
+      }
+    }
+
+    // Copy all current topic files snapshot
+    ConcurrentHashMap<Path, List<Integer>> offsetIndexMapCopy = new ConcurrentHashMap<>();
+    for (Path filePath : offsetIndexMap.keySet()) {
+      Path fileCopyPath = ReplicationUtils.copyTopicFiles(filePath, srcId);
+      offsetIndexMapCopy.putIfAbsent(fileCopyPath,
+          new CopyOnWriteArrayList<>(offsetIndexMap.get(filePath)));
+    }
+
+    LOGGER.info("Sending snapshot... Broker version offset: " + offsetVersionCount);
+    int countOffsetSent = 0, id = 1, offset;
+    boolean isSent;
+
+    for(Path filePath : offsetIndexMapCopy.keySet()) {
+      LOGGER.info("Sending snapshot... " + filePath);
+      while (countOffsetSent <= PubSubUtils.getFileSize(filePath)) {
+
+        byte[] data = getBytes(countOffsetSent, filePath.getFileName().toString(),
+            offsetIndexMapCopy.get(filePath),PubSubUtils.getTopic(filePath.getFileName().toString()));
+        if (data == null) {
+          break;
+        }
+        String log = ByteString.copyFrom(data).toStringUtf8();
+        offset = data.length;
+        countOffsetSent += offset;
+
+        Message msgInfo = PubSubUtils.getSnapshotMsg(id, offset, data, log, host, port, brokerId);
+        if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
+          break;
+        }
+        isSent = connection.send(msgInfo.toByteArray());
+        if (isSent) {
+          LOGGER.info(id++ + " | Sent snapshot of: " + new String(data));
+        } else {
+          LOGGER.warning("Sent failed for msgId: " + id++);
+        }
+      }
+      countOffsetSent = 0;
+      PubSubUtils.deleteFilePath(filePath);
+    }
+    replicationHandler.sendLastSnapshot(connection);
+  }
+
+
+  /**
+   * Getting snapshot from follower
+   */
+  public void getSnapshotFromFollower() {
+    replicationFactor.logRf();
+    boolean hasTopic;
+    for (String topic : membershipTable.getRfMap().keySet()) {
+      hasTopic = false;
+      List<MemberAccount> memberAccounts = membershipTable.getRfMap().get(topic);
+      MemberAccount followerAccount = null;
+      for (MemberAccount memberAccount : memberAccounts) {
+        if (memberAccount.getBrokerId() == brokerId) {
+          hasTopic = true;
+          continue;
+        } else {
+          followerAccount = memberAccount;
+        }
+      }
+      if (!hasTopic && followerAccount != null) {
+        LOGGER.info("Getting snapshot from follower: " + followerAccount.getBrokerId());
+        ConnectionHandler followerConnection =
+            membershipTable.get(followerAccount.getBrokerId()).getPubSubConnection();
+        if (followerConnection == null) {
+          followerConnection = new ConnectionHandler(followerAccount.getHost(),
+              followerAccount.getPort(), faultInjector);
+          MembershipUtils.setPubSubConnection(membershipTable,
+              followerAccount.getBrokerId(), followerConnection);
+        }
+        replicationHandler.sendSnapshotRequest(followerConnection,
+            membershipTable.get(followerAccount.getBrokerId()).getPubSubLocation());
+        ConnectionHandler finalFollowerConnection = followerConnection;
+        threadPool.execute(() -> receiveMsg(finalFollowerConnection, true));
+      }
+    }
+  }
+
+  /**
+   * Handle follower failure
+   */
+  private void handleRfFollowerFailure() {
+    if (isLeader && membershipTable.isFollowerFail()) {
+      LOGGER.info("Membership follower failed: " + membershipTable.isFollowerFail());
+      Map<String, List<MemberAccount>> newRfFollowers = replicationFactor.updateNewRfBrokerList();
+      replicationFactor.logRf();
+      for (String topic : newRfFollowers.keySet()) {
+        flushTopicToOffset(topic);
+        for (MemberAccount newMember : newRfFollowers.get(topic)) {
+          LOGGER.info("Sending snapshot topic: " + topic + " to: " + newMember.getPubSubLocation());
+          sendSnapshotOfTopicToRfFollowers(topic,
+              membershipTable.get(newMember.getBrokerId()).getPubSubConnection(),
+              newMember.getPubSubLocation());
+        }
+      }
+      LOGGER.info("Membership follower failed: " + membershipTable.isFollowerFail());
+    }
+  }
+
+  /**
+   * Handle last message in stream
+   */
+  private void handleLastMessage() {
+    PubSubUtils.wait(Constant.TIMEOUT);
+    Message lastMsg = PubSubUtils.getLastMessage();
+    replicationHandler.sendReplicateToAllBrokers(lastMsg, faultInjector);
+    flushAllToDisk();
+  }
+
+  /**
+   * Send a closing message
+   */
+  private void sendClose(ConnectionHandler connection) {
+    Message msgInfo = PubSubUtils.getLastMessage();
+    connection.send(msgInfo.toByteArray());
+  }
+
+  /**
+   * Update membership table based on received heartbeat
+   *
+   * @param rfBrokerMap membership table instance for protobuf
+   */
+  private void updateMembershipTableRf(Map<String, BrokerList> rfBrokerMap) {
+    List<MemberAccount> brokerAccountList = Collections.synchronizedList(new ArrayList<>());
+    Membership.BrokerList brokerList;
+    for (String topic : rfBrokerMap.keySet()) {
+      brokerList = rfBrokerMap.get(topic);
+      if (brokerList == null) {
+        LOGGER.info("Broker list is null");
+        return;
+      }
+      membershipTable.getReplicationMap().putIfAbsent(topic, brokerList);
+      membershipTable.getReplicationMap().replace(topic, brokerList);
+      updateRfMap(brokerAccountList, brokerList, topic);
+    }
+  }
+
+  /**
+   * Update membership table rf map
+   *
+   * @param brokerAccountList member account list
+   * @param brokerList        broker protobuf list
+   * @param topic             message topic
+   */
+  private void updateRfMap(List<MemberAccount> brokerAccountList,
+      BrokerList brokerList, String topic) {
+    BrokerInfo brokerInfo;
+    MemberAccount memberAccount;
+
+    for (int i = 0; i < brokerList.getBrokerInfoCount(); i++) {
+      brokerInfo = brokerList.getBrokerInfo(i);
+      memberAccount = new MemberAccount(brokerInfo.getHost(), brokerInfo.getPort(),
+          brokerInfo.getIsLeader(), brokerInfo.getId(), brokerInfo.getLeaderPort());
+      brokerAccountList.add(memberAccount);
+    }
+
+    if (!brokerAccountList.isEmpty()) {
+      replicationFactor.setRfMap(topic, brokerAccountList);
+    }
+    brokerAccountList.clear();
+  }
+
+  /**
+   * Update membership table based on received heartbeat
+   *
+   * @param protoMap membership table instance for protobuf
+   */
+  private void updateMembershipTable(Map<Integer, Membership.BrokerInfo> protoMap) {
+    Membership.BrokerInfo protoInfo;
+    for (Integer brokerIdProto : protoMap.keySet()) {
+      protoInfo = protoMap.get(brokerIdProto);
+
+      String leaderBasedLocation =
+          PubSubUtils.getBrokerLocation(protoInfo.getHost(), protoInfo.getLeaderPort());
+
+      if (!membershipTable.getMembershipMap().containsKey(brokerIdProto)
+          && !membershipTable.getFailure()) {
+        LOGGER.info(leaderBasedLocation + " is leader: " + protoInfo.getIsLeader());
+        connectToPeer(PubSubUtils.getBrokerLocation(protoInfo.getHost(),
+            protoInfo.getPort()), leaderBasedLocation, protoInfo.getId());
+
+        if (!isSnapshot && protoInfo.getIsLeader()) {
+          isSnapshot = true;
+          leaderLocation =
+              PubSubUtils.getBrokerLocation(protoInfo.getHost(), protoInfo.getPort());
+          LOGGER.info("Leader location: " + leaderLocation);
+          this.leaderConnection = PubSubUtils.connectToBroker(leaderLocation, faultInjector);
+          replicationHandler.sendSnapshotRequest(leaderConnection, leaderLocation);
+          threadPool.execute(() -> receiveMsg(leaderConnection, true));
+        }
+      }
+    }
+  }
+
+  /**
+   * Flush all topicMap entry to disk
+   */
   private void flushAllToDisk() {
     for (Entry<String, List<Message>> topic : topicMap.entrySet()) {
       flushToDisk(topicMap.get(topic.getKey()),
@@ -470,6 +803,11 @@ public class Broker {
     }
   }
 
+  /**
+   * Flush each message to disk
+   *
+   * @param msg Message protobuf
+   */
   public void flushEachMsgToFile(Message msg) {
     byte[] data = msg.getData().toByteArray();
     if (data != null) {
@@ -493,6 +831,25 @@ public class Broker {
     }
   }
 
+  /**
+   * Flush specific topic map to offset
+   *
+   * @param topic topic
+   */
+  private void flushTopicToOffset(String topic) {
+    List<Message> currentTopicMsg = List.copyOf(topicMap.get(topic));
+    for (Message message : currentTopicMsg) {
+      flushEachMsgToFile(message);
+      topicMap.get(message.getTopic()).remove(message);
+    }
+  }
+
+  /**
+   * Increment offset counter
+   *
+   * @param msg      increment offset counter
+   * @param filePath offset file path
+   */
   private void incrementOffset(Message msg, Path filePath) {
     int currOffset;
     offsetVersionCount += msg.getOffset();
@@ -510,177 +867,20 @@ public class Broker {
   }
 
   /**
-   * Send message to consumer using offset
-   *
-   * @param msg protobuf message
-   */
-  public void sendToConsumerFromOffset(ConnectionHandler connection, Message msg) {
-    int startingOffset = msg.getStartingPosition();
-    int countOffsetSent = 0, offset;
-    while (countOffsetSent <= Constant.MAX_BYTES) {
-      String fileName = ReplicationAppUtils.getTopicFile(msg.getTopic());
-      byte[] data = getBytes(startingOffset, fileName,
-          offsetIndexMap.get(Path.of(fileName)));
-      offset = data.length;
-      startingOffset += offset;
-      countOffsetSent += offset;
-      MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
-          .setTypeValue(1)
-          .setTopic(msg.getTopic())
-          .setData(ByteString.copyFrom(data))
-          .setOffset(offset)
-          .build();
-      if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
-        return;
-      }
-      LOGGER.info("Sending data to consumer: " + ByteString.copyFrom(data));
-      connection.send(msgInfo.toByteArray());
-    }
-    sendClose(connection);
-  }
-
-
-  /**
-   * Send snapshot to new rf followers using offset
-   */
-  public void sendSnapshotOfTopicToRfFollowers(String topic, ConnectionHandler connection, String srcId) {
-
-    // Copy all current topic new file snapshot
-    Path filePath = Path.of(ReplicationAppUtils.getTopicFile(topic));
-    LOGGER.info("File path: " + filePath);
-    Path fileCopyPath = ReplicationUtils.copyTopicFiles(filePath, srcId);
-    LOGGER.info("File path: " + fileCopyPath);
-    List<Integer> offsetIndexMapCopy = new CopyOnWriteArrayList<>(offsetIndexMap.get(filePath));
-
-    LOGGER.info("Sending snapshot for topic: " + topic);
-    int countOffsetSent = 0, id = 1, offset;
-    boolean isSent;
-
-    while (countOffsetSent <= PubSubUtils.getFileSize(fileCopyPath)) {
-      byte[] data = getBytes(countOffsetSent, fileCopyPath.getFileName().toString(), offsetIndexMapCopy);
-      if (data == null) {
-        break;
-      }
-      String log = ByteString.copyFrom(data).toStringUtf8();
-      offset = data.length;
-      countOffsetSent += offset;
-
-      MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
-          .setTypeValue(1)
-          .setData(ByteString.copyFrom(data))
-          .setOffset(offset)
-          .setTopic(ReplicationUtils.getTopic(log))
-          .setSrcId(PubSubUtils.getBrokerLocation(host, port))
-          .setMsgId(id)
-          .setIsSnapshot(true)
-          .build();
-      if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
-        break;
-      }
-      isSent = connection.send(msgInfo.toByteArray());
-      if (isSent) {
-        LOGGER.info(id++ + " | Sent snapshot of: " + new String(data));
-      } else {
-        LOGGER.warning("Sent failed for msgId: " + id++);
-      }
-    }
-    try {
-      Files.delete(filePath);
-    } catch (IOException e) {
-      LOGGER.warning(filePath+ " delete fail: " + e.getMessage());
-    }
-    replicationHandler.sendLastSnapshot(connection);
-  }
-
-  private void flushTopicToOffset(String topic) {
-    List<Message> currentTopicMsg = List.copyOf(topicMap.get(topic));
-
-    // Flush current topicMap to Offset
-    for (Message message : currentTopicMsg) {
-      flushEachMsgToFile(message);
-      topicMap.get(message.getTopic()).remove(message);
-    }
-  }
-
-  /**
-   * Send snapshot to broker using offset
-   */
-  public void sendSnapshotToBrokerFromOffset(ConnectionHandler connection, String srcId) {
-    Map<String, List<Message>> currentTopicMap = topicMap.entrySet().stream()
-        .collect(Collectors.toMap(Entry::getKey, e -> List.copyOf(e.getValue())));
-
-    // Flush current topicMap to Offset
-    for (Map.Entry<String, List<Message>> topic : currentTopicMap.entrySet()) {
-      for (Message msg : topic.getValue()) {
-        flushEachMsgToFile(msg);
-        topicMap.get(msg.getTopic()).remove(msg);
-      }
-    }
-
-    // Copy all current topic files snapshot
-    ConcurrentHashMap<Path, List<Integer>> offsetIndexMapCopy = new ConcurrentHashMap<>();
-    for (Path filePath : offsetIndexMap.keySet()) {
-      Path fileCopyPath = ReplicationUtils.copyTopicFiles(filePath, srcId);
-      offsetIndexMapCopy.putIfAbsent(fileCopyPath,
-          new CopyOnWriteArrayList<>(offsetIndexMap.get(filePath)));
-    }
-
-    LOGGER.info("Sending snapshot... Broker version offset: " + offsetVersionCount);
-    int countOffsetSent = 0, id = 1, offset;
-    boolean isSent;
-
-    for(Path filePath : offsetIndexMapCopy.keySet()) {
-      LOGGER.info("Sending snapshot... " + filePath);
-      while (countOffsetSent <= PubSubUtils.getFileSize(filePath)) {
-
-        byte[] data = getBytes(countOffsetSent, filePath.getFileName().toString(),
-            offsetIndexMapCopy.get(filePath));
-        if (data == null) {
-          break;
-        }
-        String log = ByteString.copyFrom(data).toStringUtf8();
-        offset = data.length;
-        countOffsetSent += offset;
-
-        MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
-            .setTypeValue(1)
-            .setData(ByteString.copyFrom(data))
-            .setOffset(offset)
-            .setTopic(ReplicationUtils.getTopic(log))
-            .setSrcId(PubSubUtils.getBrokerLocation(host, port))
-            .setMsgId(id)
-            .setIsSnapshot(true)
-            .build();
-        if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
-          break;
-        }
-        isSent = connection.send(msgInfo.toByteArray());
-        if (isSent) {
-          LOGGER.info(id++ + " | Sent snapshot of: " + new String(data));
-        } else {
-          LOGGER.warning("Sent failed for msgId: " + id++);
-        }
-      }
-      countOffsetSent = 0;
-      try {
-        Files.delete(filePath);
-      } catch (IOException e) {
-        LOGGER.warning(filePath+ " delete fail: " + e.getMessage());
-      }
-    }
-    replicationHandler.sendLastSnapshot(connection);
-  }
-
-  /**
    * Get message byte array from starting offset
    *
    * @param startingOffset starting offset
+   * @param topic          message topic
    * @return byte[] messages for consumer
    */
-  public byte[] getBytes(int startingOffset, String fileName, List<Integer> offsetIndex) {
+  public byte[] getBytes(int startingOffset, String fileName,
+                         List<Integer> offsetIndex, String topic) {
     int nextIdx, byteSize;
     byte[] data = new byte[0];
     try (InputStream inputStream = new FileInputStream(fileName)) {
+      if (offsetIndex == null) {
+        return null;
+      }
       if (!offsetIndex.contains(startingOffset)) {
         startingOffset = PubSubUtils.getClosestOffset(offsetIndex, startingOffset);
       }
@@ -697,128 +897,17 @@ public class Broker {
       inputStream.read(data);
     } catch (IOException e) {
       LOGGER.warning("Error in reading from persistent log: " + e.getMessage());
+      flushTopicToOffset(topic);
     }
     return data;
   }
 
   /**
-   * Sending message to push-based customer
-   * from starting position to max pull
-   *
-   * @param startingOffset initial message offset
-   * @param topic          topic
+   * A helper methode to delete offset files
    */
-  public void sendToPushBasedConsumer(int startingOffset, String topic,
-      ConnectionHandler connection, String fileName) {
-    LOGGER.info("Sending data to push-based consumer: ");
-    int countOffsetSent = 0, offset;
-    while (countOffsetSent <= PubSubUtils.getFileSize(Path.of(fileName))) {
-      byte[] data = getBytes(startingOffset, fileName,
-          offsetIndexMap.get(Path.of(fileName)));
-      if (data == null) {
-        return;
-      }
-      offset = data.length;
-      if (offset == 0) {
-        return;
-      }
-      startingOffset += offset;
-      countOffsetSent += offset;
-      MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
-          .setTypeValue(1)
-          .setTopic(topic)
-          .setData(ByteString.copyFrom(data))
-          .setOffset(offset)
-          .build();
-      if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
-        return;
-      }
-      LOGGER.info("Sent data: " + ByteString.copyFrom(data));
-      connection.send(msgInfo.toByteArray());
-    }
-    sendClose(connection);
-  }
-
-  /**
-   * Send a closing message
-   */
-  private void sendClose(ConnectionHandler connection) {
-    MsgInfo.Message msgInfo = Message.newBuilder()
-        .setTypeValue(1)
-        .setTopic("close")
-        .build();
-    connection.send(msgInfo.toByteArray());
-  }
-
-  /**
-   * Update membership table based on received heartbeat
-   *
-   * @param rfBrokerMap membership table instance for protobuf
-   */
-  private void updateMembershipTableRf(Map<String, BrokerList> rfBrokerMap) {
-    List<MemberAccount> brokerAccountList = Collections.synchronizedList(new ArrayList<>());
-    Membership.BrokerList brokerList;
-    for (String topic : rfBrokerMap.keySet()) {
-      brokerList = rfBrokerMap.get(topic);
-      if (brokerList == null) {
-        LOGGER.info("Broker list is null");
-        return;
-      }
-      membershipTable.getReplicationMap().putIfAbsent(topic, brokerList);
-      membershipTable.getReplicationMap().replace(topic, brokerList);
-      // LOGGER.info("TOPIC RF");
-      // LOGGER.info(membershipTable.getReplicationMap().toString());
-      updateRfMap(brokerAccountList, brokerList, topic);
-    }
-  }
-
-  private void updateRfMap(List<MemberAccount> brokerAccountList,
-      BrokerList brokerList, String topic) {
-    BrokerInfo brokerInfo;
-    MemberAccount memberAccount;
-
-    for (int i = 0; i < brokerList.getBrokerInfoCount(); i++) {
-      brokerInfo = brokerList.getBrokerInfo(i);
-      memberAccount = new MemberAccount(brokerInfo.getHost(), brokerInfo.getPort(),
-          brokerInfo.getIsLeader(), brokerInfo.getId(), brokerInfo.getLeaderPort());
-      brokerAccountList.add(memberAccount);
-    }
-
-    if (!brokerAccountList.isEmpty()) {
-      replicationFactor.setRfMap(topic, brokerAccountList);
-    }
-    brokerAccountList.clear();
-    // membershipTable.rfToString();
-  }
-
-  /**
-   * Update membership table based on received heartbeat
-   *
-   * @param protoMap membership table instance for protobuf
-   */
-  private void updateMembershipTable(Map<Integer, Membership.BrokerInfo> protoMap) {
-    Membership.BrokerInfo protoInfo;
-    for (Integer brokerId : protoMap.keySet()) {
-      protoInfo = protoMap.get(brokerId);
-      String leaderBasedLocation =
-          PubSubUtils.getBrokerLocation(protoInfo.getHost(), protoInfo.getLeaderPort());
-
-      if (!membershipTable.getMembershipMap().containsKey(brokerId)
-          && !membershipTable.getFailure()) {
-        LOGGER.info(leaderBasedLocation + " is leader: " + protoInfo.getIsLeader());
-        connectToPeer(PubSubUtils.getBrokerLocation(protoInfo.getHost(),
-            protoInfo.getPort()), leaderBasedLocation, protoInfo.getId());
-
-        if (!isSnapshot && protoInfo.getIsLeader()) {
-          isSnapshot = true;
-          leaderLocation =
-              PubSubUtils.getBrokerLocation(protoInfo.getHost(), protoInfo.getPort());
-          LOGGER.info("Leader location: " + leaderLocation);
-          this.leaderConnection = PubSubUtils.connectToBroker(leaderLocation, faultInjector);
-          replicationHandler.sendSnapshotRequest(leaderConnection, leaderLocation);
-          threadPool.execute(() -> receiveMsg(leaderConnection, true));
-        }
-      }
+  private void deleteOffsetFiles() {
+    for (Path filePath : offsetIndexMap.keySet()) {
+      PubSubUtils.deleteFilePath(filePath);
     }
   }
 }

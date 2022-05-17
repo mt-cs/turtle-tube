@@ -21,6 +21,7 @@ public class FailureDetector {
   private final BullyElectionManager bullyElection;
   private final ReplicationFactor replicationFactor;
   private final long heartBeatTimeout;
+  private final boolean isRf;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
   /**
@@ -33,12 +34,13 @@ public class FailureDetector {
    */
   public FailureDetector(Map<Integer, HeartBeatInfo> heartbeatReceivedTimes,
       MembershipTable membershipTable, BullyElectionManager bullyElection,
-      Long heartBeatTimeout, ReplicationFactor replicationFactor) {
+      Long heartBeatTimeout, ReplicationFactor replicationFactor, boolean isRf) {
     this.heartBeatInfoMap = heartbeatReceivedTimes;
     this.heartBeatTimeout = heartBeatTimeout;
     this.membershipTable = membershipTable;
     this.bullyElection = bullyElection;
     this.replicationFactor = replicationFactor;
+    this.isRf = isRf;
   }
 
   /**
@@ -68,11 +70,9 @@ public class FailureDetector {
         }
         break;
       }
-//      LOGGER.info("heartbeat checked from: " + brokerId);
       membershipTable.setFailure(false);
     }
   }
-
 
   /**
    * A helper class to delete death node
@@ -83,7 +83,9 @@ public class FailureDetector {
     membershipTable.setFailure(true);
     membershipTable.remove(brokerId);
     heartBeatInfoMap.remove(brokerId);
-    replicationFactor.removeBrokerReplicationMap(brokerId);
+    if (isRf) {
+      replicationFactor.removeBrokerReplicationMap(brokerId);
+    }
     LOGGER.warning("Broker " + brokerId + " has failed!");
     LOGGER.info(membershipTable.toString());
   }

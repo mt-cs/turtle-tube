@@ -1,1 +1,0 @@
-{"type": "producer", "id": "producer1", "kind": "pull", "port": "1052", "host": "localhost", "topic": "", "key": "", "startingPosition": "0", "numBrokers": "1", "numPartitions": "0"}

@@ -1,13 +1,17 @@
 package controllers.replicationmodule;
 
 import controllers.faultinjector.FaultInjectorFactory;
-import controllers.membershipmodule.MembershipTable;
 import controllers.messagingframework.ConnectionHandler;
 import controllers.pubsubframework.PubSubUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
 import java.util.logging.Logger;
+import model.MemberAccount;
 import model.Membership.MemberInfo;
 import util.Constant;
 
@@ -36,32 +40,45 @@ public class ReplicationUtils {
    *
    * @param loadBalancerConnection Connection handler
    */
-  public static void sendAddressRequest(ConnectionHandler loadBalancerConnection) {
+  public static void sendAddressRequest(ConnectionHandler loadBalancerConnection,
+                                        int type, int id) {
     MemberInfo addressRequest = MemberInfo.newBuilder()
-        .setTypeValue(0)
+        .setTypeValue(type)
+        .setId(id)
         .build();
     loadBalancerConnection.send(addressRequest.toByteArray());
   }
 
-  public static String getTopic(String line) {
-    String[] lineSplit = line.split(Constant.SPACE);
-    if (lineSplit.length < 7) {
-      return "";
+  /**
+   * Get random member up to rf followers
+   *
+   * @param brokerAccountList member account list
+   * @return rfBrokerList
+   */
+  public static List<MemberAccount> getRandomMemberAccounts(
+      List<MemberAccount> brokerAccountList) {
+    List<MemberAccount> rfBrokerList
+        = Collections.synchronizedList(new ArrayList<>());
+
+    int randomIndex;
+    MemberAccount randomAccount;
+    for (int i = 0; i < Constant.RF; i++) {
+      randomIndex = new Random().nextInt(brokerAccountList.size());
+      randomAccount = brokerAccountList.get(randomIndex);
+      brokerAccountList.remove(randomIndex);
+      rfBrokerList.add(randomAccount);
     }
-    String[] urlSplit = lineSplit[6].split(Constant.SLASH);
-    if (urlSplit.length <= 1) {
-      return "";
-    }
-    return urlSplit[1];
+    LOGGER.info(rfBrokerList.toString());
+    return rfBrokerList;
   }
 
-  public static String getCopyFileName(String line, String id) {
-    String[] lineSplit = line.split(Constant.OFFSET_LOG);
-    String copyFileName = lineSplit[0] + Constant.UNDERSCORE + PubSubUtils.getPort(id) + Constant.COPY_LOG;
-    LOGGER.info("Copy fileName: " + copyFileName);
-    return copyFileName;
-  }
-
+  /**
+   * Copy topic file to a new path
+   *
+   * @param originalFilePath origin path
+   * @param id               target broker Id
+   * @return copyFilePath
+   */
   public static Path copyTopicFiles(Path originalFilePath, String id) {
     String copyFileName = getCopyFileName(originalFilePath.getFileName().toString(), id);
 
@@ -75,5 +92,35 @@ public class ReplicationUtils {
     return copyFilePath;
   }
 
+  /**
+   * Get the name of copy file
+   *
+   * @param line original offset file name
+   * @param id   target broker Id
+   * @return copyFileName
+   */
+  public static String getCopyFileName(String line, String id) {
+    String[] lineSplit = line.split(Constant.OFFSET_LOG);
+    String copyFileName = lineSplit[0] + Constant.UNDERSCORE + PubSubUtils.getPort(id) + Constant.COPY_LOG;
+    LOGGER.info("Copy fileName: " + copyFileName);
+    return copyFileName;
+  }
 
+  /**
+   * Get topic name
+   *
+   * @param line stream
+   * @return topic name
+   */
+  public static String getTopic(String line) {
+    String[] lineSplit = line.split(Constant.SPACE);
+    if (lineSplit.length < 7) {
+      return "";
+    }
+    String[] urlSplit = lineSplit[6].split(Constant.SLASH);
+    if (urlSplit.length <= 1) {
+      return "";
+    }
+    return urlSplit[1];
+  }
 }

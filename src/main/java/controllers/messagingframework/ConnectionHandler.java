@@ -83,7 +83,6 @@ public class ConnectionHandler implements Sender, Receiver {
       return new byte[0];
     }
 
-
     DataInputStream inputStream =
         new DataInputStream(this.socket.getInputStream());
     faultInjector.injectFailure();

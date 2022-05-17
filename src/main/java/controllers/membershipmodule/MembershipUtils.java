@@ -2,6 +2,7 @@ package controllers.membershipmodule;
 
 import controllers.messagingframework.ConnectionHandler;
 import controllers.pubsubframework.PubSubUtils;
+import java.util.TimerTask;
 import java.util.logging.Logger;
 import model.MemberAccount;
 import model.Membership.MemberInfo;
@@ -77,9 +78,9 @@ public class MembershipUtils {
    * Helper method to send broker address
    */
   public static void sendBrokerLocation(ConnectionHandler connection, int brokerId,
-      String brokerHost, int brokerPort, boolean isLeader) {
+      String brokerHost, int brokerPort, boolean isLeader, int type) {
     MemberInfo brokerInfo = MemberInfo.newBuilder()
-        .setTypeValue(1)
+        .setTypeValue(type)
         .setHost(brokerHost)
         .setPort(brokerPort)
         .setId(brokerId)
@@ -107,5 +108,25 @@ public class MembershipUtils {
         return;
       }
     }
+  }
+
+  /**
+   * Set pubsub connection
+   *
+   * @param membershipTable membership table
+   * @param brokerId   broker host and port
+   * @param connection connection pubsub
+   */
+  public static void setPubSubConnection(MembershipTable membershipTable,
+      Integer brokerId, ConnectionHandler connection) {
+    TimerTask task = new TimerTask() {
+      public void run() {
+        if (membershipTable.getMembershipMap().containsKey(brokerId)) {
+          LOGGER.info("Setting pubsub connection for broker: " + brokerId);
+          membershipTable.getMembershipMap().get(brokerId).setPubSubConnection(connection);
+        }
+      }
+    };
+    PubSubUtils.timerTask(task, 5000L);
   }
 }

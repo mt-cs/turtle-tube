@@ -1,0 +1,1 @@
+{"type": "broker", "id": "3", "host": "mcvm029.cs.usfca.edu", "port": "1095", "leaderBasedPort": "1096", "isLeader": "false", "targetBrokerLocation": "mcvm032.cs.usfca.edu:1052", "targetLeaderBasedLocation": "localhost:1053", "targetId": "1", "faultType": "0", "loadBalancerLocation": "mcvm021.cs.usfca.edu:1061", "isRf": "false"}

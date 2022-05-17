@@ -25,7 +25,8 @@ public class ProducerReplicationApp {
   public void runProducerApplication(ProducerConfig producerConfig) {
 
     ProducerReplication producer =
-        new ProducerReplication(producerConfig.getLoadBalancerLocation());
+        new ProducerReplication(producerConfig.getLoadBalancerLocation(),
+                                producerConfig.getId());
     producer.connectToLoadBalancer();
     producer.getLeaderAddress();
     producer.connectToBroker();

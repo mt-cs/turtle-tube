@@ -1,6 +1,8 @@
 package controllers.pubsubframework;
 
+import com.google.protobuf.ByteString;
 import controllers.messagingframework.ConnectionHandler;
+import controllers.replicationmodule.ReplicationUtils;
 import interfaces.FaultInjector;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -13,7 +15,7 @@ import java.util.TimerTask;
 import java.util.logging.Logger;
 import model.MsgInfo;
 import model.MsgInfo.Message;
-import org.apache.commons.codec.digest.DigestUtils;
+import util.Constant;
 import util.ReplicationAppUtils;
 import util.Utils;
 
@@ -48,16 +50,26 @@ public class PubSubUtils {
     return offsetIndex.get(idx);
   }
 
+  /**
+   * Get the size of offset file
+   *
+   * @param filePath path of persistent storage
+   * @return size
+   */
   public static long getFileSize(Path filePath) {
     try {
-      long size = Files.size(filePath);
-      return size;
+      return Files.size(filePath);
     } catch (IOException e) {
-      e.printStackTrace();
+      LOGGER.warning("Failed in getting file size: " + e.getMessage());
     }
     return 0;
   }
 
+  /**
+   * Flush consumer application to file
+   *
+   * @param data log data
+   */
   public static void flushToFile(byte[] data) {
     if (data != null) {
       Path filePathSave = Path.of(ReplicationAppUtils.getOffsetFile());
@@ -78,7 +90,6 @@ public class PubSubUtils {
     }
   }
 
-
   /**
    * Create connection to broker
    * @param brokerLocation broker host:id
@@ -96,6 +107,43 @@ public class PubSubUtils {
   }
 
   /**
+   * Get snapshot msg
+   * @param id         msg ID
+   * @param offset     msg offset
+   * @param data       protobuf data
+   * @param log        string log
+   * @param host       broker host
+   * @param port       broker port
+   * @param brokerId   broker ID
+   * @return snapshot protobuf
+   */
+  public static Message getSnapshotMsg(int id, int offset, byte[] data,
+                                      String log, String host, int port, int brokerId) {
+    return Message.newBuilder()
+        .setTypeValue(Constant.BROKER_TYPE)
+        .setData(ByteString.copyFrom(data))
+        .setOffset(offset)
+        .setTopic(ReplicationUtils.getTopic(log))
+        .setSrcId(PubSubUtils.getBrokerLocation(host, port))
+        .setMsgId(id)
+        .setId(brokerId)
+        .setIsSnapshot(true)
+        .build();
+  }
+
+  /**
+   * Get last message
+   *
+   * @return close message
+   */
+  public static Message getLastMessage() {
+    return Message.newBuilder()
+        .setTypeValue(Constant.BROKER_TYPE)
+        .setTopic(Constant.CLOSE)
+        .build();
+  }
+
+  /**
    * Get port of broker
    *
    * @param brokerLocation broker location
@@ -107,6 +155,19 @@ public class PubSubUtils {
       LOGGER.warning("Broker location is in incorrect format: " + brokerLocation);
     }
     return Integer.parseInt(brokerInfo[1]);
+  }
+
+  /**
+   * Delete file
+   *
+   * @param filePath fikePath
+   */
+  public static void deleteFilePath(Path filePath) {
+    try {
+      Files.delete(filePath);
+    } catch (IOException ex) {
+      ex.printStackTrace();
+    }
   }
 
   /**
@@ -167,7 +228,12 @@ public class PubSubUtils {
     return host + ":" + port;
   }
 
-
+  /**
+   * Msg Topic Info to string
+   *
+   * @param msg MsgInfo.Message
+   * @return string protobuf representation
+   */
   public static String getMsgTopicInfo(MsgInfo.Message msg) {
     return "\n--> Topic: " + msg.getTopic()
         + ". Data: " + msg.getData()
@@ -192,6 +258,16 @@ public class PubSubUtils {
    */
   public static boolean getIsFirstLeader(int brokerId) {
     return brokerId == 1;
+  }
+
+  /**
+   * Get topic from offset file
+   *
+   * @param logFile topic offset file
+   * @return topic
+   */
+  public static String getTopic(String logFile) {
+    return logFile.substring(logFile.lastIndexOf('_') + 1, logFile.lastIndexOf('.'));
   }
 
 }

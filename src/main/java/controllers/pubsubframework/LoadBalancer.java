@@ -7,11 +7,13 @@ import controllers.membershipmodule.MembershipUtils;
 import controllers.messagingframework.ConnectionHandler;
 import controllers.messagingframework.Listener;
 import java.io.IOException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 import model.Membership;
 import model.Membership.MemberInfo;
+import util.Constant;
 
 /**
  * Load balancer class
@@ -25,7 +27,11 @@ public class LoadBalancer {
   private volatile int leaderPort;
   private volatile boolean isLeaderSelected;
   private final ReentrantLock reentrantLock;
-  private ConcurrentLinkedQueue<MemberInfo> followerQueue;
+  private final ConcurrentHashMap<ConnectionHandler, MemberInfo> leaderConnectionMap;
+  private final ConcurrentHashMap<ConnectionHandler, MemberInfo> producerConnectionMap;
+  private final ConcurrentHashMap<ConnectionHandler, MemberInfo> consumerConnectionMap;
+  private final ConcurrentHashMap<ConnectionHandler, MemberInfo> followerConnectionMap;
+  private final ConcurrentLinkedQueue<MemberInfo> followerQueue;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
   /**
@@ -39,6 +45,10 @@ public class LoadBalancer {
     this.isLeaderSelected = false;
     this.reentrantLock = new ReentrantLock();
     this.followerQueue = new ConcurrentLinkedQueue<>();
+    this.followerConnectionMap = new ConcurrentHashMap<>();
+    this.leaderConnectionMap = new ConcurrentHashMap<>();
+    this.producerConnectionMap = new ConcurrentHashMap<>();
+    this.consumerConnectionMap = new ConcurrentHashMap<>();
   }
 
   /**
@@ -70,7 +80,17 @@ public class LoadBalancer {
           requestInfoArr = connection.receive();
         } catch (IOException ioe) {
           LOGGER.warning("IOException in load balancer receive request: " + ioe.getMessage());
-          isLeaderSelected = false;
+          if (followerConnectionMap.containsKey(connection)) {
+            requestInfo = followerConnectionMap.get(connection);
+            LOGGER.info("Removing failed follower: " + requestInfo.getId());
+            followerQueue.remove(requestInfo);
+            followerConnectionMap.remove(connection);
+          } else if (leaderConnectionMap.containsKey(connection)){
+            requestInfo = leaderConnectionMap.get(connection);
+            LOGGER.info("Removing failed leader: " + requestInfo.getId());
+            leaderConnectionMap.remove(connection);
+            isLeaderSelected = false;
+          }
           break;
         }
 
@@ -92,22 +112,32 @@ public class LoadBalancer {
                 reentrantLock.unlock();
                 LOGGER.info("Current leader: " + leaderId);
                 isLeaderSelected = true;
-                MembershipUtils.sendBrokerLocation(connection,
-                    leaderId, leaderHost, leaderPort, isLeaderSelected);
+                leaderConnectionMap.put(connection, requestInfo);
               } else {
                 followerQueue.add(requestInfo);
-                LOGGER.info("Added member to queue: " + requestInfo.getPort());
+                LOGGER.info("Added follower to queue: " + requestInfo.getId());
+                followerConnectionMap.put(connection, requestInfo);
               }
-            } if (requestInfo.getTypeValue() == 4) {
-              MemberInfo followerInfo = followerQueue.poll();
-              LOGGER.info("Current follower: " + followerInfo.getId());
-              MembershipUtils.sendBrokerLocation(connection,
-                  followerInfo.getId(), followerInfo.getHost(),
-                  followerInfo.getPort(), followerInfo.getIsLeader());
-            } else {
+            } else if (requestInfo.getTypeValue() == 0) {
               if (isLeaderSelected) {
+                MembershipUtils.sendBrokerLocation(connection, leaderId,
+                    leaderHost, leaderPort, isLeaderSelected, Constant.LOADBALANCER_TYPE);
+              }
+              producerConnectionMap.put(connection, requestInfo);
+            } else if (requestInfo.getTypeValue() == 2) {
+              if (isLeaderSelected) {
+                MembershipUtils.sendBrokerLocation(connection, leaderId,
+                    leaderHost, leaderPort, isLeaderSelected, Constant.LOADBALANCER_TYPE);
+              }
+              consumerConnectionMap.put(connection, requestInfo);
+            } else if (requestInfo.getTypeValue() == 4) {
+              MemberInfo followerInfo = followerQueue.poll();
+              if (followerInfo != null) {
+                LOGGER.info("Current follower: " + followerInfo.getId());
                 MembershipUtils.sendBrokerLocation(connection,
-                    leaderId, leaderHost, leaderPort, isLeaderSelected);
+                    followerInfo.getId(), followerInfo.getHost(),
+                    followerInfo.getPort(), followerInfo.getIsLeader(),
+                    Constant.LOADBALANCER_TYPE);
               }
             }
           }

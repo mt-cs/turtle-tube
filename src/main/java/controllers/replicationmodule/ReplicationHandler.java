@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import model.MemberAccount;
@@ -59,6 +58,7 @@ public class ReplicationHandler {
     MsgInfo.Message msgInfo = Message.newBuilder()
         .setTypeValue(4)
         .setSrcId(PubSubUtils.getBrokerLocation(host, port))
+        .setId(brokerId)
         .setTopic(Constant.SNAPSHOT)
         .build();
     LOGGER.info("Sent request snapshot to broker: " + targetBrokerLocation);
@@ -82,6 +82,7 @@ public class ReplicationHandler {
         .setMsgId(msgFromProducer.getMsgId())
         .setTypeValue(1)
         .setIsSnapshot(false)
+        .setId(brokerId)
         .build();
 
     boolean isSent = connectionToPeer.send(msgInfoReplicate.toByteArray());
@@ -89,83 +90,6 @@ public class ReplicationHandler {
       LOGGER.info("Sent replication for: " + msgFromProducer.getMsgId());
     } else {
       LOGGER.warning("Failed sending replication for: " + msgFromProducer.getMsgId());
-    }
-    return isSent;
-  }
-
-  public synchronized List<MemberAccount> getRfBrokerList() {
-    List<MemberAccount> brokerAccountList = new ArrayList<>();
-    for (var broker : membershipTable) {
-      if (broker.getValue().isLeader() ||
-          broker.getValue().getBrokerId() == brokerId) {
-        continue;
-      }
-      brokerAccountList.add(broker.getValue());
-    }
-
-    if (brokerAccountList.size() < Constant.RF + 1) {
-      LOGGER.info("Membership table size: " + membershipTable.size());
-      return brokerAccountList;
-    }
-
-    List<MemberAccount> rfBrokerList = Collections.synchronizedList(new ArrayList<>());
-
-    // select random broker up to RF
-    int randomIndex;
-    MemberAccount randomAccount;
-    for (int i = 0; i < Constant.RF; i++) {
-      randomIndex = new Random().nextInt(brokerAccountList.size());
-      randomAccount = brokerAccountList.get(randomIndex);
-      brokerAccountList.remove(randomIndex);
-      rfBrokerList.add(randomAccount);
-    }
-    LOGGER.info(rfBrokerList.toString());
-
-    return rfBrokerList;
-  }
-
-
-  /**
-   * Replicate the topic to rf followers
-   * rather than all followers.
-   *
-   * @param msg           Message info
-   * @param faultInjector fault injector
-   * @return true if sent
-   */
-  public boolean sendReplicateToRFFollowers(MsgInfo.Message msg,
-      FaultInjector faultInjector, List<MemberAccount> rfBrokerAccountList) {
-    LOGGER.info(rfBrokerAccountList.toString());
-    LOGGER.info("Membership table size: " + membershipTable.size());
-    if (membershipTable.size() == 1) {
-      LOGGER.info("No follower connection found.");
-      return true;
-    }
-    if (membershipTable.size() <= Constant.RF + 1) {
-      return sendReplicateToAllBrokers(msg, faultInjector);
-    }
-    updatePubSubConnection(faultInjector);
-
-    boolean isSent = false;
-
-    for (MemberAccount broker : rfBrokerAccountList) {
-      String targetBroker = broker.getPubSubLocation();
-      LOGGER.info("Sending replicate to broker: " + targetBroker);
-      ConnectionHandler connectionToPeer = broker.getPubSubConnection();
-      if (connectionToPeer == null) {
-        connectionToPeer = new ConnectionHandler(broker.getHost(),
-            broker.getPort(), faultInjector);
-        MembershipUtils.updatePubSubConnection(membershipTable,
-            msg.getSrcId(), connectionToPeer);
-      }
-      isSent = sendReplicateToBroker(connectionToPeer, msg);
-      if (!isSent) {
-        LOGGER.warning("Msg lost: " + msg.getMsgId() + " to broker: " + targetBroker);
-        PubSubUtils.wait(10000);
-        LOGGER.info("Member key " + broker.getBrokerId() + "is failed: "
-            + membershipTable.notContainsMember(broker.getBrokerId()));
-        return membershipTable.notContainsMember(broker.getBrokerId());
-      }
     }
     return isSent;
   }
@@ -187,6 +111,7 @@ public class ReplicationHandler {
         .setSrcId(srcId)
         .setOffset(length)
         .setMsgId(msgId)
+        .setId(brokerId)
         .build();
     boolean isAckSent = connection.send(ack.toByteArray());
     if (isAckSent) {
@@ -197,26 +122,6 @@ public class ReplicationHandler {
           isAckSent + " | source: " + srcId + " | msgId: " + msgId);
     }
     return isAckSent;
-  }
-
-  /**
-   * Store message to topic map
-   *
-   * @param msg       Message Info
-   * @param topicMap  topic concurrent map
-   */
-  public void storeMsgToTopicMap(Message msg,
-      ConcurrentHashMap<String, List<Message>> topicMap) {
-    if (!topicMap.containsKey(msg.getTopic())) {
-      List <Message> msgList = Collections.synchronizedList(new ArrayList<>());
-      msgList.add(msg);
-      LOGGER.info(msg.getMsgId() + " | " + PubSubUtils.getMsgTopicInfo(msg));
-      topicMap.put(msg.getTopic(), msgList);
-      LOGGER.info("New Topic List: " + msg.getTopic() + " added to broker's topicMap");
-    } else {
-      topicMap.get(msg.getTopic()).add(msg);
-      LOGGER.info(msg.getMsgId() + " | " + PubSubUtils.getMsgTopicInfo(msg));
-    }
   }
 
   /**
@@ -285,7 +190,7 @@ public class ReplicationHandler {
    */
   public void sendLastSnapshot(ConnectionHandler connection) {
     Message msgInfoLast = Message.newBuilder()
-        .setTypeValue(1)
+        .setTypeValue(Constant.BROKER_TYPE)
         .setTopic(Constant.LAST_SNAPSHOT)
         .setIsSnapshot(true)
         .build();
@@ -293,7 +198,98 @@ public class ReplicationHandler {
     LOGGER.info("Sending last snapshot... ");
   }
 
+  /**
+   * Get replication followers
+   *
+   * @return rf member account
+   */
+  public synchronized List<MemberAccount> getRfBrokerList() {
+    List<MemberAccount> brokerAccountList = new ArrayList<>();
+    for (var broker : membershipTable) {
+      if (broker.getValue().isLeader() ||
+          broker.getValue().getBrokerId() == brokerId) {
+        continue;
+      }
+      brokerAccountList.add(broker.getValue());
+    }
 
+    if (brokerAccountList.size() < Constant.RF + 1) {
+      LOGGER.info("Membership table size: " + membershipTable.size());
+      return brokerAccountList;
+    }
+
+    return ReplicationUtils.getRandomMemberAccounts(brokerAccountList);
+  }
+
+  /**
+   * Replicate the topic to rf followers
+   * rather than all followers.
+   *
+   * @param msg           Message info
+   * @param faultInjector fault injector
+   * @return true if sent
+   */
+  public boolean sendReplicateToRFFollowers(MsgInfo.Message msg,
+      FaultInjector faultInjector, List<MemberAccount> rfBrokerAccountList) {
+    LOGGER.info(rfBrokerAccountList.toString());
+    LOGGER.info("Membership table size: " + membershipTable.size());
+    if (membershipTable.size() == 1) {
+      LOGGER.info("No follower connection found.");
+      return true;
+    }
+    if (membershipTable.size() <= Constant.RF + 1) {
+      return sendReplicateToAllBrokers(msg, faultInjector);
+    }
+
+    boolean isSent = false;
+    for (MemberAccount broker : rfBrokerAccountList) {
+      String targetBroker = broker.getPubSubLocation();
+      LOGGER.info("Sending replicate to broker: " + targetBroker);
+      ConnectionHandler connectionToPeer
+          = membershipTable.getMembershipMap().get(broker.getBrokerId()).getPubSubConnection();
+      if (connectionToPeer == null) {
+        connectionToPeer = new ConnectionHandler(broker.getHost(),
+            broker.getPort(), faultInjector);
+        MembershipUtils.updatePubSubConnection(membershipTable,
+            msg.getSrcId(), connectionToPeer);
+      }
+      isSent = sendReplicateToBroker(connectionToPeer, msg);
+      if (!isSent) {
+        LOGGER.warning("Msg lost: " + msg.getMsgId() + " to broker: " + targetBroker);
+        PubSubUtils.wait(10000);
+        LOGGER.info("Member key " + broker.getBrokerId() + "is failed: "
+            + membershipTable.notContainsMember(broker.getBrokerId()));
+        return membershipTable.notContainsMember(broker.getBrokerId());
+      }
+    }
+    return isSent;
+  }
+
+  /**
+   * Store message to topic map
+   *
+   * @param msg       Message Info
+   * @param topicMap  topic concurrent map
+   */
+  public void storeMsgToTopicMap(Message msg,
+      ConcurrentHashMap<String, List<Message>> topicMap) {
+    if (!topicMap.containsKey(msg.getTopic())) {
+      List <Message> msgList = Collections.synchronizedList(new ArrayList<>());
+      msgList.add(msg);
+      LOGGER.info(msg.getMsgId() + " | " + PubSubUtils.getMsgTopicInfo(msg));
+      topicMap.put(msg.getTopic(), msgList);
+      LOGGER.info("New Topic List: " + msg.getTopic() + " added to broker's topicMap");
+    } else {
+      topicMap.get(msg.getTopic()).add(msg);
+      LOGGER.info(msg.getMsgId() + " | " + PubSubUtils.getMsgTopicInfo(msg));
+    }
+  }
+
+  /**
+   * Copy buffer snapshot to topic map
+   *
+   * @param topicMapSnapshot buffer topic map
+   */
   public void copyToTopicMap(ConcurrentHashMap<String, List<Message>> topicMapSnapshot) {
     for (Entry<String, List<Message>> topic : topicMapSnapshot.entrySet()) {
       List<Message> msgList = topicMapSnapshot.get(topic.getKey());

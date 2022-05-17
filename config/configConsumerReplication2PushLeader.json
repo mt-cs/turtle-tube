@@ -1,0 +1,1 @@
+{"type": "consumer", "id": "2", "loadBalancerLocation": "mcvm021.cs.usfca.edu:1061", "topic" : "filter", "startingPosition": "400", "model":"push", "read":"leader"}

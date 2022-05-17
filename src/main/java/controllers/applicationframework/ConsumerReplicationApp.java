@@ -28,8 +28,8 @@ public class ConsumerReplicationApp {
                                        consumerConfig.getTopic(),
                                        consumerConfig.getStartingPosition(),
                                        consumerConfig.getModel(),
-                                       consumerConfig.getRead());
-
+                                       consumerConfig.getRead(),
+                                       consumerConfig.getId());
     if (consumerConfig.getModel().equals(Constant.PULL)) {
       Thread consumerAppThread = new Thread(new ApplicationWrite());
       consumerAppThread.start();
@@ -40,7 +40,6 @@ public class ConsumerReplicationApp {
       }
     }
   }
-
 
   /**
    * Save the data consumed to a file

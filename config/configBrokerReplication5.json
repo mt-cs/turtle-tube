@@ -1,0 +1,1 @@
+{"type": "broker", "id": "5", "host": "localhost", "port": "1075", "leaderBasedPort": "1076", "isLeader": "false", "targetBrokerLocation": "localhost:1035", "targetLeaderBasedLocation": "localhost:1036", "targetId": "2", "faultType": "0", "loadBalancerLocation": "localhost:1061", "isRf": "true"}

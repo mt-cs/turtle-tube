@@ -41,24 +41,6 @@ public class ReplicationAppUtils {
   }
 
   /**
-   * Get host ID
-   *
-   * @return host ID
-   */
-  public static int getId() {
-    return config.getId();
-  }
-
-  /**
-   * Get host type
-   *
-   * @return host type
-   */
-  public static String getType() {
-    return config.getType();
-  }
-
-  /**
    * Run configuration
    *
    */
@@ -85,12 +67,35 @@ public class ReplicationAppUtils {
     }
   }
 
+  /**
+   * Getter for app configuration
+   *
+   * @return config
+   */
   public static ReplicationConfig getConfig() {
     return config;
   }
 
   /**
-   * Get log File;
+   * Get host ID
+   *
+   * @return host ID
+   */
+  public static int getId() {
+    return config.getId();
+  }
+
+  /**
+   * Get host type
+   *
+   * @return host type
+   */
+  public static String getType() {
+    return config.getType();
+  }
+
+  /**
+   * Get log File
    *
    * @return logFile
    */
@@ -98,6 +103,12 @@ public class ReplicationAppUtils {
     return cmdLineParser.getOffsetFile();
   }
 
+  /**
+   * Get topic file
+   *
+   * @param topic msg topic
+   * @return topic
+   */
   public static String getTopicFile(String topic) {
     return cmdLineParser.getOffsetHeader() + Constant.UNDERSCORE + topic + Constant.OFFSET_LOG;
   }

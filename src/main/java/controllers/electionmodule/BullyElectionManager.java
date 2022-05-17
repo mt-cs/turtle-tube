@@ -86,7 +86,8 @@ public class BullyElectionManager {
     LOGGER.info(membershipTable.toString());
     sendVictoryMsgToHigherIds();
     MembershipUtils.sendBrokerLocation(loadBalancerConnection,
-        currBrokerId, pubSubHost, pubSubPort, isLeaderSelected);
+        currBrokerId, pubSubHost, pubSubPort,
+        isLeaderSelected, Constant.BROKER_TYPE);
   }
 
   /**
@@ -185,6 +186,13 @@ public class BullyElectionManager {
     isCandidateExist = false;
   }
 
+  /**
+   * Send election state
+   *
+   * @param connection ConnectionHandler
+   * @param state      state of election
+   * @return true if sent
+   */
   private boolean sendElectionStateMsg(ConnectionHandler connection, String state) {
 
     Membership.MemberInfo electionMsg = MemberInfo.newBuilder()

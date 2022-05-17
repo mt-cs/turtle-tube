@@ -27,15 +27,6 @@ public class ReplicationCmdLineParser {
   }
 
   /**
-   * Get log File;
-   *
-   * @return logFile
-   */
-  public String getLogFile() {
-    return logFile;
-  }
-
-  /**
    * Get offset File header;
    *
    * @return offset file header

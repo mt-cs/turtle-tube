@@ -15,7 +15,8 @@ message Message {
   int32 offset = 5;
   int32 startingPosition = 6;
   int32 msgId = 8;
-  bool isSnapshot = 9;
+  int32 id = 9;
+  bool isSnapshot = 10;
 
   enum srcType {
     PRODUCER = 0;

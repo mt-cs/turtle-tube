@@ -28,13 +28,16 @@ public class ProducerReplication {
   private ConnectionHandler loadBalancerConnection;
   private ConnectionHandler leaderConnection;
   private final ExecutorService executor;
-  private int msgId = 1;
+  private final int id;
+  private int msgId;
   private volatile boolean isElecting;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
-  public ProducerReplication(String loadBalancerLocation) {
+  public ProducerReplication(String loadBalancerLocation, int id) {
     this.loadBalancerLocation = loadBalancerLocation;
     this.executor = Executors.newSingleThreadExecutor();
+    this.id = id;
+    this.msgId = 1;
   }
 
   /**
@@ -63,8 +66,8 @@ public class ProducerReplication {
   public void send (String topic, byte[] data) {
 
     MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
-        .setTypeValue(0)
-        .setSrcId("producer1")
+        .setTypeValue(Constant.PRODUCER_TYPE)
+        .setSrcId(Constant.PRODUCER + id)
         .setTopic(topic)
         .setOffset(data.length)
         .setMsgId(msgId)
@@ -95,7 +98,8 @@ public class ProducerReplication {
    */
   public String getLeaderAddress() {
 
-    ReplicationUtils.sendAddressRequest(loadBalancerConnection);
+    ReplicationUtils.sendAddressRequest(loadBalancerConnection,
+                                        Constant.PRODUCER_TYPE, id);
 
     FutureTask<MemberInfo> future =
         new FutureTask<>(() -> MemberInfo.parseFrom(loadBalancerConnection.receive()));
@@ -158,12 +162,12 @@ public class ProducerReplication {
    */
   private void handleElection(Message msgInfo) {
     if (!isElecting)  {
-      PubSubUtils.wait(20000);
+      PubSubUtils.wait(Constant.PRODUCER_TIMER_COUNTER);
       if (leaderConnection.send(msgInfo.toByteArray())) {
         PubSubUtils.logMsgInfo(msgInfo);
       }
     } else {
-      PubSubUtils.wait(20000);
+      PubSubUtils.wait(Constant.PRODUCER_TIMER_COUNTER);
       leaderLocation = getLeaderAddress();
       connectToBroker();
       isElecting = false;

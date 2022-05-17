@@ -23,12 +23,12 @@ import util.Constant;
  */
 public class HeartBeatScheduler {
   private final int brokerId;
+  private final boolean isRf;
   private final MembershipTable membershipTable;
   private final Long heartBeatInterval;
   private final FailureDetector failureDetector;
   private final Map<Integer, HeartBeatInfo> heartbeatInfoMap;
   private final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
-  private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
   /**
    * Constructor for Heartbeat scheduler
@@ -39,14 +39,15 @@ public class HeartBeatScheduler {
    * @param bullyElection     bully election manager
    */
   public HeartBeatScheduler(int brokerId, MembershipTable membershipTable,
-                            Long heartBeatInterval, BullyElectionManager bullyElection,
-                            ReplicationFactor replicationFactor) {
+      Long heartBeatInterval, BullyElectionManager bullyElection,
+      ReplicationFactor replicationFactor, boolean isRf) {
     this.brokerId = brokerId;
+    this.isRf = isRf;
     this.membershipTable = membershipTable;
     this.heartBeatInterval = heartBeatInterval;
     this.heartbeatInfoMap = new ConcurrentHashMap<>();
     this.failureDetector = new FailureDetector(heartbeatInfoMap, membershipTable,
-        bullyElection, getHeartBeatTimeout(heartBeatInterval), replicationFactor);
+        bullyElection, getHeartBeatTimeout(heartBeatInterval), replicationFactor, isRf);
   }
 
   /**
@@ -54,8 +55,8 @@ public class HeartBeatScheduler {
    */
   public void start() {
     Runnable task = () -> {
-        sendHeartBeat();
-        failureDetector.checkHeartBeat();
+      sendHeartBeat();
+      failureDetector.checkHeartBeat();
     };
 
     ScheduledFuture<?> scheduledTask;
@@ -68,28 +69,17 @@ public class HeartBeatScheduler {
    */
   public void sendHeartBeat() {
     for (var member : membershipTable) {
-//      LOGGER.info(membershipTable.toString());
       if (member.getValue().getBrokerId() == brokerId) {
         continue;
       }
-//      LOGGER.info("Sending heartbeat to broker: "
-//          + member.getValue().getBrokerId() + " | "
-//          + member.getValue().getLeaderBasedLocation());
-
       ConnectionHandler connection = member.getValue().getLeaderBasedConnection();
-      Membership.MemberInfo memberInfo = MemberInfo.newBuilder()
-          .setTypeValue(1)
-          .setIsAlive(true)
-          .setState(Constant.ALIVE)
-          .setId(brokerId)
-          .setHost(membershipTable.get(brokerId).getHost())
-          .setPort(membershipTable.get(brokerId).getPort())
-          .setLeaderPort(membershipTable.get(brokerId).getLeaderBasedPort())
-          .putAllMembershipTable(membershipTable.getProtoMap())
-          .putAllReplicationTable(membershipTable.getReplicationMap())
-          .build();
+      MemberInfo memberInfo;
+      if (isRf) {
+        memberInfo = HeartBeatUtils.getHeartBeatRfInfo(brokerId, membershipTable);
+      } else {
+        memberInfo = HeartBeatUtils.getHeartBeatMemberInfo(brokerId, membershipTable);
+      }
       connection.send(memberInfo.toByteArray());
-//      LOGGER.info(membershipTable.getReplicationMap().toString());
     }
   }
 
@@ -98,7 +88,6 @@ public class HeartBeatScheduler {
    */
   public synchronized void handleHeartBeatRequest(int id) {
     heartbeatInfoMap.put(id, new HeartBeatInfo(System.nanoTime(), 0));
-//    LOGGER.info("Receive heartbeat from broker " + id);
   }
 
   /**
