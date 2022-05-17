@@ -112,10 +112,6 @@ public class Broker {
         new ConnectionHandler(Constant.LOCALHOST, Constant.LB_PORT, faultInjector);
     MembershipUtils.addSelfToMembershipTable(host, port,
         leaderBasedPort, isLeader, brokerId, membershipTable);
-//    if (isLeader) {
-//      MembershipUtils.sendLeaderLocation(loadBalancerConnection, brokerId, host, port);
-//    }
-
     MembershipUtils.sendBrokerLocation(loadBalancerConnection, brokerId, host, port, isLeader);
     this.bullyElection = new BullyElectionManager(brokerId, membershipTable, loadBalancerConnection);
     this.replicationHandler = new ReplicationHandler(membershipTable, host, port, brokerId, topicMap);
@@ -179,6 +175,8 @@ public class Broker {
           if (msg.getTypeValue() == 0) {
             if (msg.getTopic().equals(Constant.CLOSE)) {
               isReceiving = false;
+              PubSubUtils.wait(10000);
+              flushAllToDisk();
             } else {
               receiveFromProducer(connection, msg);
             }
@@ -211,11 +209,7 @@ public class Broker {
                 replicationHandler.copyToTopicMap(topicMapReplicationSyncUp);
                 topicMapReplicationSyncUp.clear();
                 LOGGER.info("Sync up completed!");
-
-                // flush all to disk
-                for (Map.Entry<String, List<Message>> topic : topicMap.entrySet()) {
-                  flushToDisk(topicMap.get(topic.getKey()), Path.of(ReplicationAppUtils.getTopicFile(topic.getKey())));
-                }
+                flushAllToDisk();
                 continue;
               }
               // Getting snapshot to catch up
@@ -247,6 +241,8 @@ public class Broker {
       }
     }
   }
+
+
 
   /**
    * Handle messages from broker
@@ -362,6 +358,13 @@ public class Broker {
     }
     if (isAckSent) {
       LOGGER.info("Broker received msgId: " + msgFromProducer.getMsgId());
+    }
+  }
+
+  private void flushAllToDisk() {
+    for (Entry<String, List<Message>> topic : topicMap.entrySet()) {
+      flushToDisk(topicMap.get(topic.getKey()),
+          Path.of(ReplicationAppUtils.getTopicFile(topic.getKey())));
     }
   }
 
@@ -595,34 +598,6 @@ public class Broker {
   }
 
   /**
-   * Sending message to push-based customer
-   * from starting position to max pull
-   *
-   * @param startingOffset initial message offset
-   * @param topic          topic
-   */
-  public void sendEachMsgToPushBasedConsumer(int startingOffset, String topic,
-      ConnectionHandler connection, String fileName) {
-    LOGGER.info("Sending data to push-based consumer: ");
-    byte[] data = getBytes(startingOffset, fileName,
-        offsetIndexMap.get(Path.of(fileName)));
-    if (data.length == 0) {
-      return;
-    }
-    MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
-        .setTypeValue(1)
-        .setTopic(topic)
-        .setData(ByteString.copyFrom(data))
-        .setOffset(data.length)
-        .build();
-    if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
-      return;
-    }
-    LOGGER.info("Sent data: " + ByteString.copyFrom(data));
-    connection.send(msgInfo.toByteArray());
-  }
-
-  /**
    * Send a closing message
    */
   private void sendClose(ConnectionHandler connection) {
@@ -660,12 +635,5 @@ public class Broker {
         }
       }
     }
-  }
-
-  /**
-   * Close listener
-   */
-  public void close() {
-    this.isRunning = false;
   }
 }
