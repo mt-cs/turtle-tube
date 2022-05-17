@@ -73,6 +73,8 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
   public void remove(int id) {
     membershipMap.remove(id);
     protoMap.remove(id);
+    removeBrokerRfMap(id);
+    removeBrokerReplicationMap(id);
   }
 
   /**
@@ -244,9 +246,39 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
     }
   }
 
+  public synchronized void removeBrokerRfMap(int id) {
+    for (String topicKey : rfMap.keySet()) {
+      rfMap.get(topicKey).removeIf(memberAccount -> memberAccount.getBrokerId() == id);
+    }
+    rfToString();
+  }
 
-
-
+  public synchronized void removeBrokerReplicationMap(int id) {
+    boolean isRemoving = false;
+    LOGGER.info("Removing from replication map ID : " + id);
+    List<BrokerInfo> rfBrokerList = Collections.synchronizedList(new ArrayList<>());
+    for (String topicKey : replicationMap.keySet()) {
+      BrokerList brokerList = replicationMap.get(topicKey);
+      for (int i = 0; i < brokerList.getBrokerInfoCount(); i++) {
+        BrokerInfo brokerInfo = brokerList.getBrokerInfo(i);
+        if (brokerInfo.getId() == id) {
+          LOGGER.info("DELETING: " + id);
+          isRemoving = true;
+        } else {
+          rfBrokerList.add(brokerInfo);
+        }
+        if (isRemoving) {
+          BrokerList brokerListNew = BrokerList.newBuilder()
+              .addAllBrokerInfo(rfBrokerList)
+              .build();
+          replicationMap.replace(topicKey, brokerListNew);
+          rfBrokerList.clear();
+          break;
+        }
+      }
+    }
+    LOGGER.info(replicationMap.toString());
+  }
 
   /**
    * toString method

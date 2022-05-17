@@ -271,8 +271,6 @@ public class Broker {
     }
   }
 
-
-
   /**
    * Handle messages from broker
    *
