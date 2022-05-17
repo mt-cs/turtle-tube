@@ -87,7 +87,7 @@ public class HeartBeatScheduler {
           .putAllReplicationTable(membershipTable.getReplicationMap())
           .build();
       connection.send(memberInfo.toByteArray());
-      LOGGER.info(membershipTable.getReplicationMap().toString());
+//      LOGGER.info(membershipTable.getReplicationMap().toString());
     }
   }
 

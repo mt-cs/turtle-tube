@@ -311,8 +311,17 @@ public class Broker {
 
           if (isLeader && membershipTable.isFollowerFail()) {
             LOGGER.info("Membership follower failed: " + membershipTable.isFollowerFail());
-            membershipTable.updateNewRfBrokerList();
+            Map<String, List<MemberAccount>> newRfFollowers = membershipTable.updateNewRfBrokerList();
             membershipTable.rfToString();
+            for (String topic : newRfFollowers.keySet()) {
+              flushTopicToOffset(topic);
+              for (MemberAccount newMember : newRfFollowers.get(topic)) {
+                LOGGER.info("Sending snapshot topic: " + topic + " to: " + newMember.getPubSubLocation());
+                sendSnapshotOfTopicToRfFollowers(topic,
+                    membershipTable.get(newMember.getBrokerId()).getPubSubConnection(),
+                    newMember.getPubSubLocation());
+              }
+            }
             LOGGER.info("Membership follower failed: " + membershipTable.isFollowerFail());
           }
 
@@ -389,8 +398,8 @@ public class Broker {
 
       // update membership replication map
       membershipTable.addRfBrokerList(msgFromProducer.getTopic(), rfBrokerList);
-//      membershipTable.rfToString();
-
+      membershipTable.rfToString();
+      LOGGER.info(membershipTable.getReplicationMap().toString());
     } else {
       topicMap.get(msgFromProducer.getTopic()).add(msgFromProducer);
       LOGGER.info(PubSubUtils.getMsgTopicInfo(msgFromProducer));
@@ -524,6 +533,69 @@ public class Broker {
       connection.send(msgInfo.toByteArray());
     }
     sendClose(connection);
+  }
+
+
+  /**
+   * Send snapshot to new rf followers using offset
+   */
+  public void sendSnapshotOfTopicToRfFollowers(String topic, ConnectionHandler connection, String srcId) {
+
+    // Copy all current topic new file snapshot
+    Path filePath = Path.of(ReplicationAppUtils.getTopicFile(topic));
+    LOGGER.info("File path: " + filePath);
+    Path fileCopyPath = ReplicationUtils.copyTopicFiles(filePath, srcId);
+    LOGGER.info("File path: " + fileCopyPath);
+    List<Integer> offsetIndexMapCopy = new CopyOnWriteArrayList<>(offsetIndexMap.get(filePath));
+
+    LOGGER.info("Sending snapshot for topic: " + topic);
+    int countOffsetSent = 0, id = 1, offset;
+    boolean isSent;
+
+    while (countOffsetSent <= PubSubUtils.getFileSize(fileCopyPath)) {
+      byte[] data = getBytes(countOffsetSent, fileCopyPath.getFileName().toString(), offsetIndexMapCopy);
+      if (data == null) {
+        break;
+      }
+      String log = ByteString.copyFrom(data).toStringUtf8();
+      offset = data.length;
+      countOffsetSent += offset;
+
+      MsgInfo.Message msgInfo = MsgInfo.Message.newBuilder()
+          .setTypeValue(1)
+          .setData(ByteString.copyFrom(data))
+          .setOffset(offset)
+          .setTopic(ReplicationUtils.getTopic(log))
+          .setSrcId(PubSubUtils.getBrokerLocation(host, port))
+          .setMsgId(id)
+          .setIsSnapshot(true)
+          .build();
+      if (msgInfo.getData().startsWith(ByteString.copyFromUtf8("\0"))) {
+        break;
+      }
+      isSent = connection.send(msgInfo.toByteArray());
+      if (isSent) {
+        LOGGER.info(id++ + " | Sent snapshot of: " + new String(data));
+      } else {
+        LOGGER.warning("Sent failed for msgId: " + id++);
+      }
+    }
+    try {
+      Files.delete(filePath);
+    } catch (IOException e) {
+      LOGGER.warning(filePath+ " delete fail: " + e.getMessage());
+    }
+    replicationHandler.sendLastSnapshot(connection);
+  }
+
+  private void flushTopicToOffset(String topic) {
+    List<Message> currentTopicMsg = List.copyOf(topicMap.get(topic));
+
+    // Flush current topicMap to Offset
+    for (Message message : currentTopicMsg) {
+      flushEachMsgToFile(message);
+      topicMap.get(message.getTopic()).remove(message);
+    }
   }
 
   /**
@@ -690,8 +762,8 @@ public class Broker {
       }
       membershipTable.getReplicationMap().putIfAbsent(topic, brokerList);
       membershipTable.getReplicationMap().replace(topic, brokerList);
-      LOGGER.info("TOPIC RF");
-      LOGGER.info(membershipTable.getReplicationMap().toString());
+      // LOGGER.info("TOPIC RF");
+      // LOGGER.info(membershipTable.getReplicationMap().toString());
       updateRfMap(brokerAccountList, brokerList, topic);
     }
   }
@@ -712,7 +784,7 @@ public class Broker {
       membershipTable.setRfMap(topic, brokerAccountList);
     }
     brokerAccountList.clear();
-    membershipTable.rfToString();
+    // membershipTable.rfToString();
   }
 
   /**

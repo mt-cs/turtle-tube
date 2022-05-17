@@ -76,7 +76,7 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
   public void remove(int id) {
     membershipMap.remove(id);
     protoMap.remove(id);
-    removeBrokerRfMap(id);
+//    removeBrokerRfMap(id);
     removeBrokerReplicationMap(id);
   }
 
@@ -206,8 +206,6 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
         .build();
   }
 
-
-
   /**
    * Getter for replication factor topic map
    *
@@ -220,12 +218,12 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
   public synchronized void setRfMap(String topic, List<MemberAccount> memberList) {
     if (!memberList.isEmpty()) {
         List<MemberAccount> memberAccounts = new CopyOnWriteArrayList<>(memberList);
-        LOGGER.info(memberAccounts.toString());
+//        LOGGER.info(memberAccounts.toString());
         rfMap.putIfAbsent(topic, memberAccounts);
-        rfToString();
+//        rfToString();
         if (rfMap.containsKey(topic)) {
           rfMap.replace(topic, memberAccounts);
-          rfToString();
+//          rfToString();
         }
     }
   }
@@ -243,37 +241,80 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
     rfToString();
   }
 
+  public synchronized void resetReplicationMap() {
+    BrokerList brokerList;
+    for (String topicKey : rfMap.keySet()) {
+      brokerList = getRfBrokerInfoList(rfMap.get(topicKey));
+      replicationMap.replace(topicKey, brokerList);
+    }
+
+  }
+
   public synchronized void removeBrokerReplicationMap(int id) {
+
     LOGGER.info("Removing from replication map ID : " + id);
-    boolean isRemoving = false;
-    List<BrokerInfo> rfBrokerList = Collections.synchronizedList(new ArrayList<>());
+//    boolean isRemoving = false;
+//    List<BrokerInfo> rfBrokerList = Collections.synchronizedList(new ArrayList<>());
     for (String topicKey : replicationMap.keySet()) {
       LOGGER.info(" DELETING FROM: " + topicKey);
       BrokerList brokerList = replicationMap.get(topicKey);
       for (int i = 0; i < brokerList.getBrokerInfoCount(); i++) {
         BrokerInfo brokerInfo = brokerList.getBrokerInfo(i);
+        LOGGER.info("CHECKING FOR: " + brokerInfo.getId() + " | " + brokerInfo.getPort());
         if (brokerInfo.getId() == id) {
-          LOGGER.info("DELETING: " + id);
+          LOGGER.info("DELETING: " + brokerInfo.getId());
           isFollowerFail = true;
-          isRemoving = true;
-        } else {
-          rfBrokerList.add(brokerInfo);
-        }
-        if (isRemoving) {
-          BrokerList brokerListNew = BrokerList.newBuilder()
-              .addAllBrokerInfo(rfBrokerList)
-              .build();
-          replicationMap.replace(topicKey, brokerListNew);
-          rfBrokerList.clear();
-          isRemoving = false;
+//          isRemoving = true;
           break;
         }
+//        else {
+//          rfBrokerList.add(brokerInfo);
+//        }
+//        if (isRemoving) {
+//          BrokerList brokerListNew = BrokerList.newBuilder()
+//              .addAllBrokerInfo(rfBrokerList)
+//              .build();
+//          replicationMap.replace(topicKey, brokerListNew);
+//          rfBrokerList.clear();
+//          isRemoving = false;
+//          break;
+//        }
       }
     }
+    removeBrokerRfMap(id);
+    resetReplicationMap();
     LOGGER.info(replicationMap.toString());
   }
 
+  public synchronized List<MemberAccount> getRfBrokerMemberAccountList() {
+    List<MemberAccount> brokerAccountList = new ArrayList<>();
+    for (Integer brokerId : membershipMap.keySet()) {
+      if (membershipMap.get(brokerId).isLeader() ||
+          membershipMap.get(brokerId).getBrokerId() == brokerId) {
+        continue;
+      }
+      brokerAccountList.add(membershipMap.get(brokerId));
+    }
 
+    if (brokerAccountList.size() < Constant.RF + 1) {
+      LOGGER.info("Membership table size: " + membershipMap.size());
+      return brokerAccountList;
+    }
+
+    List<MemberAccount> rfBrokerList = Collections.synchronizedList(new ArrayList<>());
+
+    // select random broker up to RF
+    int randomIndex;
+    MemberAccount randomAccount;
+    for (int i = 0; i < Constant.RF; i++) {
+      randomIndex = new Random().nextInt(brokerAccountList.size());
+      randomAccount = brokerAccountList.get(randomIndex);
+      brokerAccountList.remove(randomIndex);
+      rfBrokerList.add(randomAccount);
+    }
+    LOGGER.info(rfBrokerList.toString());
+    return rfBrokerList;
+  }
 
   /**
    * Create protobuf broker info
@@ -295,29 +336,43 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
     return brokerList;
   }
 
-  public synchronized void updateNewRfBrokerList() {
+  public synchronized Map<String, List<MemberAccount>> updateNewRfBrokerList() {
     LOGGER.info("Updating the fail node to maintain rf...");
     LOGGER.info(replicationMap.toString());
     List<BrokerInfo> rfBrokerList = Collections.synchronizedList(new ArrayList<>());
     List<Integer> existingIdList = Collections.synchronizedList(new ArrayList<>());
+    List<MemberAccount> memberAccounts;
+    BrokerList brokerListNew;
+    Map<String, List<MemberAccount>> newRfMemberMap = new ConcurrentHashMap<>();
     for (String topic : replicationMap.keySet()) {
       LOGGER.info("TOPIC RF: " + topic);
       BrokerList brokerList = replicationMap.get(topic);
+      memberAccounts = Collections.synchronizedList(new ArrayList<>());
       for (BrokerInfo newBrokerInfo : brokerList.getBrokerInfoList()) {
         rfBrokerList.add(newBrokerInfo);
         LOGGER.info("Existing broker: " + newBrokerInfo.getId());
         existingIdList.add(newBrokerInfo.getId());
       }
-      while (rfBrokerList.size() < Constant.RF) {
-        LOGGER.info("New broker list size: " + rfBrokerList.size());
-        BrokerInfo newRandomBroker = getNewRfBrokerList(existingIdList);
-        rfBrokerList.add(newRandomBroker);
-        existingIdList.add(newRandomBroker.getId());
-        LOGGER.info("New random broker: " + newRandomBroker.getId());
+      if (membershipMap.size() < Constant.RF + 1) {
+        LOGGER.info("Membership table size: " + membershipMap.size());
+        memberAccounts = getRfBrokerMemberAccountList();
+        brokerListNew = getRfBrokerInfoList(memberAccounts);
+      } else {
+        while (rfBrokerList.size() < Constant.RF) {
+          LOGGER.info("New broker list size: " + rfBrokerList.size());
+          BrokerInfo newRandomBroker = getNewRfBrokerList(existingIdList);
+          rfBrokerList.add(newRandomBroker);
+          existingIdList.add(newRandomBroker.getId());
+          LOGGER.info("New random broker: " + newRandomBroker.getId());
+          memberAccounts.add(getMemberAccount(newRandomBroker));
+        }
+        if (!memberAccounts.isEmpty()) {
+          newRfMemberMap.putIfAbsent(topic, memberAccounts);
+        }
+        brokerListNew = BrokerList.newBuilder()
+            .addAllBrokerInfo(rfBrokerList)
+            .build();
       }
-      BrokerList brokerListNew = BrokerList.newBuilder()
-          .addAllBrokerInfo(rfBrokerList)
-          .build();
       replicationMap.replace(topic, brokerListNew);
       rfBrokerList.clear();
       existingIdList.clear();
@@ -325,6 +380,7 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
     }
     isFollowerFail = false;
     LOGGER.info(replicationMap.toString());
+    return newRfMemberMap;
   }
 
   public synchronized BrokerInfo getNewRfBrokerList(List<Integer> idList) {
@@ -341,16 +397,16 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
         brokerList.add(brokerInfo);
       } else {
         for (Integer id : idList) {
-          LOGGER.info("Existing ID: " + id);
+          // LOGGER.info("Existing ID: " + id);
           if (brokerInfo.getId() != id) {
             brokerList.add(brokerInfo);
-            LOGGER.info("Added to broker list: " + brokerInfo.getId());
+            // LOGGER.info("Added to broker list: " + brokerInfo.getId());
           }
         }
       }
     }
     int randomIndex = new Random().nextInt(brokerList.size());
-    LOGGER.info("New rf broker: " + brokerList.get(randomIndex).getId());
+    // LOGGER.info("New rf broker: " + brokerList.get(randomIndex).getId());
     return brokerList.get(randomIndex);
   }
 
@@ -361,16 +417,21 @@ public class MembershipTable implements Iterable<Map.Entry<Integer, MemberAccoun
 
     for (int i = 0; i < brokerList.getBrokerInfoCount(); i++) {
       brokerInfo = brokerList.getBrokerInfo(i);
-      memberAccount = new MemberAccount(brokerInfo.getHost(), brokerInfo.getPort(),
-          brokerInfo.getIsLeader(), brokerInfo.getId(), brokerInfo.getLeaderPort());
+      memberAccount = getMemberAccount(brokerInfo);
       brokerAccountList.add(memberAccount);
     }
 
     if (!brokerAccountList.isEmpty()) {
       setRfMap(topic, brokerAccountList);
     }
-    brokerAccountList.clear();
     rfToString();
+  }
+
+  private MemberAccount getMemberAccount(BrokerInfo brokerInfo) {
+    MemberAccount memberAccount;
+    memberAccount = new MemberAccount(brokerInfo.getHost(), brokerInfo.getPort(),
+        brokerInfo.getIsLeader(), brokerInfo.getId(), brokerInfo.getLeaderPort());
+    return memberAccount;
   }
 
   /**

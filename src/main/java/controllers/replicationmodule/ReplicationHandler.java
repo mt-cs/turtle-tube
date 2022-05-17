@@ -120,6 +120,7 @@ public class ReplicationHandler {
       rfBrokerList.add(randomAccount);
     }
     LOGGER.info(rfBrokerList.toString());
+
     return rfBrokerList;
   }
 
@@ -134,6 +135,7 @@ public class ReplicationHandler {
    */
   public boolean sendReplicateToRFFollowers(MsgInfo.Message msg,
       FaultInjector faultInjector, List<MemberAccount> rfBrokerAccountList) {
+    LOGGER.info(rfBrokerAccountList.toString());
     LOGGER.info("Membership table size: " + membershipTable.size());
     if (membershipTable.size() == 1) {
       LOGGER.info("No follower connection found.");
