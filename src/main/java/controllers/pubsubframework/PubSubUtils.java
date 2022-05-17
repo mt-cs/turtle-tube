@@ -2,18 +2,10 @@ package controllers.pubsubframework;
 
 import controllers.messagingframework.ConnectionHandler;
 import interfaces.FaultInjector;
-import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.nio.file.StandardWatchEventKinds;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
 import java.util.List;
 import java.util.Scanner;
 import java.util.Timer;
@@ -289,41 +281,6 @@ public class PubSubUtils {
     return brokerId == 1;
   }
 
-  /**
-   * Source : https://stackoverflow.com/a/16251508/15987367
-   * @param filePath
-   * @return
-   */
-  public static boolean waitService(String filePath) {
-    final Path path = FileSystems.getDefault().getPath(System.getProperty("user.home"), "Desktop");
-    System.out.println(path);
-    try (final WatchService watchService = FileSystems.getDefault().newWatchService()) {
-      final WatchKey watchKey = path.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY);
-      while (true) {
-        final WatchKey wk = watchService.take();
-        for (WatchEvent<?> event : wk.pollEvents()) {
-          //we only register "ENTRY_MODIFY" so the context is always a Path.
-          final Path changed = (Path) event.context();
-          System.out.println(changed);
-          if (changed.endsWith(filePath)) {
-            LOGGER.info("File offset has changed");
-            return true;
-          }
-        }
-        // reset the key
-        boolean valid = wk.reset();
-        if (!valid) {
-          System.out.println("Key has been unregisterede");
-          return false;
-        }
-      }
-    } catch (IOException exception) {
-      exception.printStackTrace();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-    return false;
-  }
 }
 
 

@@ -45,7 +45,7 @@ import util.ReplicationAppUtils;
 public class Broker {
   private final ExecutorService threadPool;
   private String host;
-  private String model;
+  private String leaderLocation;
   private final int port;
   private int leaderBasedPort;
   private int brokerId;
@@ -171,6 +171,19 @@ public class Broker {
           LOGGER.warning("Error in getting msg: " + e.getMessage());
           if (isSyncUp) {
             LOGGER.warning("Sync up fail!");
+            topicMap.clear();
+            topicMapReplicationSyncUp.clear();
+            for (Path filePath : offsetIndexMap.keySet()) {
+              try {
+                Files.delete(filePath);
+              } catch (IOException ex) {
+                ex.printStackTrace();
+              }
+            }
+            leaderConnection = PubSubUtils.connectToBroker(leaderLocation, faultInjector);
+            sendSnapshotToBrokerFromOffset(leaderConnection, leaderLocation);
+            LOGGER.info("Resent snapshot request");
+            threadPool.execute(() -> receiveMsg(leaderConnection, true));
           }
           continue;
         }
@@ -233,7 +246,6 @@ public class Broker {
                 msg.getOffset(), msg.getSrcId(), msg.getMsgId());
             membershipTable.updateBrokerVersion(brokerId, offsetVersionCount);
           } else if (msg.getTypeValue() == 2) {
-            model = Constant.PULL;
             LOGGER.info("Received request from customer for message topic/offset: "
                 + msg.getTopic() + "/ " + msg.getStartingPosition());
             sendToConsumerFromOffset(connection, msg);
@@ -244,7 +256,6 @@ public class Broker {
             MembershipUtils.updatePubSubConnection(membershipTable, msg.getSrcId(), connection);
             sendSnapshotToBrokerFromOffset(connection, msg.getSrcId());
           } else if (msg.getTypeValue() == 5) {
-            model = Constant.PUSH;
             LOGGER.info("Received request from Push-Based customer for message topic/offset: "
                 + msg.getTopic() + "/ " + msg.getStartingPosition());
             sendToPushBasedConsumer(msg.getStartingPosition(), msg.getTopic(), connection,
@@ -339,7 +350,8 @@ public class Broker {
 
     if (!isSnapshot && membershipTable.get(targetId).isLeader()) {
       isSnapshot = true;
-      LOGGER.info("Leader location: " + targetLeaderBasedConnection);
+      leaderLocation = targetLeaderBasedConnection;
+      LOGGER.info("Leader location: " + leaderLocation);
       this.leaderConnection = PubSubUtils.connectToBroker(targetBrokerLocation, faultInjector);
       replicationHandler.sendSnapshotRequest(leaderConnection, targetBrokerLocation);
       threadPool.execute(() -> receiveMsg(leaderConnection, true));
@@ -574,6 +586,10 @@ public class Broker {
         return null;
       }
       byteSize = offsetIndex.get(nextIdx) - startingOffset;
+      if (byteSize < 0) {
+        LOGGER.warning("End of file...");
+        return null;
+      }
       data = new byte[byteSize];
       inputStream.skip(startingOffset);
       inputStream.read(data);
@@ -652,9 +668,11 @@ public class Broker {
 
         if (!isSnapshot && protoInfo.getIsLeader()) {
           isSnapshot = true;
-          LOGGER.info("Leader location: " + leaderBasedLocation);
-          this.leaderConnection = PubSubUtils.connectToBroker(leaderBasedLocation, faultInjector);
-          replicationHandler.sendSnapshotRequest(leaderConnection, leaderBasedLocation);
+          leaderLocation =
+              PubSubUtils.getBrokerLocation(protoInfo.getHost(), protoInfo.getPort());
+          LOGGER.info("Leader location: " + leaderLocation);
+          this.leaderConnection = PubSubUtils.connectToBroker(leaderLocation, faultInjector);
+          replicationHandler.sendSnapshotRequest(leaderConnection, leaderLocation);
           threadPool.execute(() -> receiveMsg(leaderConnection, true));
         }
       }

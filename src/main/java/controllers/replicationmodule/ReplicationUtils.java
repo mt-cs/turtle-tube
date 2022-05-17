@@ -1,6 +1,7 @@
 package controllers.replicationmodule;
 
 import controllers.faultinjector.FaultInjectorFactory;
+import controllers.membershipmodule.MembershipTable;
 import controllers.messagingframework.ConnectionHandler;
 import controllers.pubsubframework.PubSubUtils;
 import java.io.IOException;
@@ -44,8 +45,11 @@ public class ReplicationUtils {
 
   public static String getTopic(String line) {
     String[] lineSplit = line.split(Constant.SPACE);
+    if (lineSplit.length < 7) {
+      return "";
+    }
     String[] urlSplit = lineSplit[6].split(Constant.SLASH);
-    if (urlSplit.length == 0) {
+    if (urlSplit.length <= 1) {
       return "";
     }
     return urlSplit[1];
@@ -70,5 +74,6 @@ public class ReplicationUtils {
     }
     return copyFilePath;
   }
+
 
 }
