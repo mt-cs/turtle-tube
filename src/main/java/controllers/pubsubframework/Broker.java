@@ -350,10 +350,10 @@ public class Broker {
 
     if (!isSnapshot && membershipTable.get(targetId).isLeader()) {
       isSnapshot = true;
-      leaderLocation = targetLeaderBasedConnection;
+      leaderLocation = targetBrokerLocation;
       LOGGER.info("Leader location: " + leaderLocation);
-      this.leaderConnection = PubSubUtils.connectToBroker(targetBrokerLocation, faultInjector);
-      replicationHandler.sendSnapshotRequest(leaderConnection, targetBrokerLocation);
+      this.leaderConnection = PubSubUtils.connectToBroker(leaderLocation, faultInjector);
+      replicationHandler.sendSnapshotRequest(leaderConnection, leaderLocation);
       threadPool.execute(() -> receiveMsg(leaderConnection, true));
     }
   }
