@@ -3,6 +3,7 @@ import controllers.electionmodule.BullyElectionManager;
 import controllers.failuredetector.FailureDetector;
 import controllers.membershipmodule.MembershipTable;
 import controllers.messagingframework.ConnectionHandler;
+import controllers.replicationmodule.ReplicationFactor;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
@@ -38,13 +39,14 @@ public class HeartBeatScheduler {
    * @param bullyElection     bully election manager
    */
   public HeartBeatScheduler(int brokerId, MembershipTable membershipTable,
-      Long heartBeatInterval, BullyElectionManager bullyElection) {
+                            Long heartBeatInterval, BullyElectionManager bullyElection,
+                            ReplicationFactor replicationFactor) {
     this.brokerId = brokerId;
     this.membershipTable = membershipTable;
     this.heartBeatInterval = heartBeatInterval;
     this.heartbeatInfoMap = new ConcurrentHashMap<>();
     this.failureDetector = new FailureDetector(heartbeatInfoMap, membershipTable,
-        bullyElection, getHeartBeatTimeout(heartBeatInterval));
+        bullyElection, getHeartBeatTimeout(heartBeatInterval), replicationFactor);
   }
 
   /**

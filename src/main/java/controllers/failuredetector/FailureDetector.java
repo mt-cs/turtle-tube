@@ -2,6 +2,7 @@ package controllers.failuredetector;
 
 import controllers.electionmodule.BullyElectionManager;
 import controllers.membershipmodule.MembershipTable;
+import controllers.replicationmodule.ReplicationFactor;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -17,7 +18,8 @@ import util.Constant;
 public class FailureDetector {
   private final Map<Integer, HeartBeatInfo> heartBeatInfoMap;
   private final MembershipTable membershipTable;
-  private BullyElectionManager bullyElection;
+  private final BullyElectionManager bullyElection;
+  private final ReplicationFactor replicationFactor;
   private final long heartBeatTimeout;
   private final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
@@ -31,11 +33,12 @@ public class FailureDetector {
    */
   public FailureDetector(Map<Integer, HeartBeatInfo> heartbeatReceivedTimes,
       MembershipTable membershipTable, BullyElectionManager bullyElection,
-      Long heartBeatTimeout) {
+      Long heartBeatTimeout, ReplicationFactor replicationFactor) {
     this.heartBeatInfoMap = heartbeatReceivedTimes;
     this.heartBeatTimeout = heartBeatTimeout;
     this.membershipTable = membershipTable;
     this.bullyElection = bullyElection;
+    this.replicationFactor = replicationFactor;
   }
 
   /**
@@ -80,6 +83,7 @@ public class FailureDetector {
     membershipTable.setFailure(true);
     membershipTable.remove(brokerId);
     heartBeatInfoMap.remove(brokerId);
+    replicationFactor.removeBrokerReplicationMap(brokerId);
     LOGGER.warning("Broker " + brokerId + " has failed!");
     LOGGER.info(membershipTable.toString());
   }

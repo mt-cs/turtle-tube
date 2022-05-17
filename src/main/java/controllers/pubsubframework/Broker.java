@@ -9,6 +9,7 @@ import controllers.membershipmodule.MembershipUtils;
 import controllers.messagingframework.ConnectionHandler;
 import controllers.messagingframework.Listener;
 import controllers.faultinjector.FaultInjectorFactory;
+import controllers.replicationmodule.ReplicationFactor;
 import controllers.replicationmodule.ReplicationHandler;
 import controllers.replicationmodule.ReplicationUtils;
 import interfaces.FaultInjector;
@@ -63,6 +64,7 @@ public class Broker {
   private HeartBeatScheduler heartBeatScheduler;
   private BullyElectionManager bullyElection;
   private ReplicationHandler replicationHandler;
+  private ReplicationFactor replicationFactor;
   private FaultInjector faultInjector;
   private final ConcurrentHashMap<Path, List<Integer>> offsetIndexMap;
   private final ConcurrentHashMap<String, List<Message>> topicMap;
@@ -118,10 +120,12 @@ public class Broker {
     MembershipUtils.addSelfToMembershipTable(host, port,
         leaderBasedPort, isLeader, brokerId, membershipTable);
     MembershipUtils.sendBrokerLocation(loadBalancerConnection, brokerId, host, port, isLeader);
-    this.bullyElection = new BullyElectionManager(brokerId, membershipTable, loadBalancerConnection);
     this.replicationHandler = new ReplicationHandler(membershipTable, host, port, brokerId, topicMap);
+    this.replicationFactor = new ReplicationFactor(membershipTable);
+    this.bullyElection = new BullyElectionManager(brokerId,
+        membershipTable, loadBalancerConnection);
     this.heartBeatScheduler = new HeartBeatScheduler(brokerId,
-        membershipTable, 1000L, bullyElection);
+        membershipTable, 1000L, bullyElection, replicationFactor);
     this.heartBeatScheduler.start();
   }
 
@@ -311,8 +315,8 @@ public class Broker {
 
           if (isLeader && membershipTable.isFollowerFail()) {
             LOGGER.info("Membership follower failed: " + membershipTable.isFollowerFail());
-            Map<String, List<MemberAccount>> newRfFollowers = membershipTable.updateNewRfBrokerList();
-            membershipTable.rfToString();
+            Map<String, List<MemberAccount>> newRfFollowers = replicationFactor.updateNewRfBrokerList();
+            replicationFactor.rfToString();
             for (String topic : newRfFollowers.keySet()) {
               flushTopicToOffset(topic);
               for (MemberAccount newMember : newRfFollowers.get(topic)) {
@@ -397,8 +401,8 @@ public class Broker {
       List<MemberAccount> rfBrokerList = replicationHandler.getRfBrokerList();
 
       // update membership replication map
-      membershipTable.addRfBrokerList(msgFromProducer.getTopic(), rfBrokerList);
-      membershipTable.rfToString();
+      replicationFactor.addRfBrokerList(msgFromProducer.getTopic(), rfBrokerList);
+      replicationFactor.rfToString();
       LOGGER.info(membershipTable.getReplicationMap().toString());
     } else {
       topicMap.get(msgFromProducer.getTopic()).add(msgFromProducer);
@@ -781,7 +785,7 @@ public class Broker {
     }
 
     if (!brokerAccountList.isEmpty()) {
-      membershipTable.setRfMap(topic, brokerAccountList);
+      replicationFactor.setRfMap(topic, brokerAccountList);
     }
     brokerAccountList.clear();
     // membershipTable.rfToString();

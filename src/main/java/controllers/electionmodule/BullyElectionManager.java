@@ -4,6 +4,7 @@ import controllers.membershipmodule.MembershipTable;
 import controllers.membershipmodule.MembershipUtils;
 import controllers.messagingframework.ConnectionHandler;
 import controllers.pubsubframework.PubSubUtils;
+import controllers.replicationmodule.ReplicationFactor;
 import java.util.*;
 import java.util.logging.Logger;
 import model.Membership;
