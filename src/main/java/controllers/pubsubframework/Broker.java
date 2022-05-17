@@ -169,6 +169,9 @@ public class Broker {
           msg = Message.parseFrom(msgByte);
         } catch (InvalidProtocolBufferException e) {
           LOGGER.warning("Error in getting msg: " + e.getMessage());
+          if (isSyncUp) {
+            LOGGER.warning("Sync up fail!");
+          }
           continue;
         }
         if (msg != null) {
@@ -176,12 +179,22 @@ public class Broker {
             if (msg.getTopic().equals(Constant.CLOSE)) {
               isReceiving = false;
               PubSubUtils.wait(10000);
+              MsgInfo.Message lastMsg = Message.newBuilder()
+                  .setTypeValue(1)
+                  .setTopic("close")
+                  .build();
+              replicationHandler.sendReplicateToAllBrokers(lastMsg, faultInjector);
               flushAllToDisk();
             } else {
               receiveFromProducer(connection, msg);
             }
           } else if (msg.getTypeValue() == 1) {
             Path filePathSave = null;
+            if (msg.getTopic().equals(Constant.CLOSE)) {
+              PubSubUtils.wait(10000);
+              flushAllToDisk();
+              continue;
+            }
             if (!msg.getTopic().equals(Constant.LAST_SNAPSHOT)) {
               filePathSave = Path.of(ReplicationAppUtils.getTopicFile(msg.getTopic()));
             }
@@ -264,8 +277,13 @@ public class Broker {
 //            LOGGER.info(membershipTable.toString());
             heartBeatScheduler.handleHeartBeatRequest(memberInfo.getId());
           } else if (memberInfo.getState().equals(Constant.CONNECT))  {
-            MembershipUtils.addToMembershipTable(connection, memberInfo, membershipTable);
+            if (isSnapshot && !memberInfo.getIsLeader()) {
+              MembershipUtils.addToMembershipTable(connection, memberInfo, membershipTable);
+            }
+
+//            MembershipUtils.addToMembershipTable(connection, memberInfo, membershipTable);
 //            LOGGER.info(membershipTable.toString());
+
           } else if (memberInfo.getState().equals(Constant.ELECTION)) {
             bullyElection.handleElectionRequest(connection, memberInfo.getId());
           } else if (memberInfo.getState().equals(Constant.CANDIDATE)) {
@@ -277,7 +295,7 @@ public class Broker {
 //              + " from broker: " + memberInfo.getId() + " | " + brokerLocation);
 
         } catch (InvalidProtocolBufferException e) {
-          e.printStackTrace();
+          LOGGER.info("Protobuf exception: " + e.getMessage());
         }
       } else {
         connection.close();
@@ -527,8 +545,14 @@ public class Broker {
         }
       }
       countOffsetSent = 0;
+      try {
+        Files.delete(filePath);
+      } catch (IOException e) {
+        LOGGER.warning(filePath+ " delete fail: " + e.getMessage());
+      }
     }
     replicationHandler.sendLastSnapshot(connection);
+
   }
 
   /**
