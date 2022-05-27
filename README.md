@@ -14,6 +14,9 @@ A reliable stream processing communication engine to enable ingesting and proces
 3. [Run Configurations](https://github.com/mt-cs/turtle-tube/edit/main/README.md#run-configurations-)
 4. [Features](https://github.com/mt-cs/turtle-tube/edit/main/README.md#features-)
 5. [Design Principles](https://github.com/mt-cs/turtle-tube/edit/main/README.md#design-principles-)
+   - [Messaging Framework with Fault Injection](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-messaging-framework-with-fault-injection)
+   - [Reliable Data Transfer](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-reliable-data-transfer)
+   - [Publish/Subscribe System](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-publishsubscribe-system)
 6. [Datasets](https://github.com/mt-cs/turtle-tube/edit/main/README.md#datasets-)
 
 ---
@@ -96,7 +99,7 @@ java -cp dsd-project.jar ReplicationDriver -type broker -config config/configCon
 
 ## Design Principles [![](https://user-images.githubusercontent.com/60201466/166403770-b5813248-17d5-4b23-acfe-cf60936d539f.svg)](#design-principles)
 
-### Messaging Framework with Fault Injection
+### 🐢 Messaging Framework with Fault Injection
 
 TURTLE TUBE messaging framework provides the ability to send and receive messages over a network and to inject interfaces failure by losing or delaying messages.
 
@@ -117,112 +120,58 @@ TURTLE TUBE uses [Protocol Buffers](https://developers.google.com/protocol-buffe
 
 A host is able to support any number of concurrent connections. Once a connection is established, a host is able to send and receive from that connection. Though a connection must be initiated by a client to a server, once the connection is established the hosts will behave as peers.
 
-### Reliability
-TURTLE TUBE's reliable data transfer protocol works over the `Lossy` connection messaging framework described above. A receiver host will ACKnowledge data as it is received, and a sender host will retransmit data that is detected as lost. This solution implements stop-n-wait protocol
+### 🐢 Reliable Data Transfer
+TURTLE TUBE's reliable data transfer protocol works over the `Lossy` connection messaging framework described above. A receiver host will ACKnowledge data as it is received, and a sender host will retransmit data that is detected as lost. This solution implements stop-and-wait protocol.
 
-### Publish/Subscribe System
+### 🐢 Publish/Subscribe System
 #### Producer
 
-`Producer` API may be used by an application running on any host that publishes messages to a broker. At minimum, `Producer` will allow the application to do the following:
+`Producer` API may be used by an application running on any host that publishes messages to a broker. `Producer` will allow the application to do the following:
 
-1. Connect to a `Broker`
-2. Send data to the `Broker` by providing a `byte[]` containing the data and a `String` containing the topic.
+1. Connect to a `Load Balancer` and request the leader address
+2. Connect to a leader `Broker`
+3. Send data to the leader `Broker` by providing a `byte[]` containing the data and a `String` containing the topic.
 
-Following is an example of how the [Kafka](https://kafka.apache.org/) API supports this functionality.
-
-```
-// Create a properties object that specifies where to find the broker
-// and how to serialize the data
-Properties props = new Properties();
-props.put("bootstrap.servers", "localhost:9092");
-props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-
-String topic = "my-topic"; //set the topic
-
-// Create a producer using the properties specified
-Producer<String, String> producer = new KafkaProducer<>(props);
-
-// Use the send method to publish records to the topic
-// Records are of the form key->value
-// In this example records look like {"1" -> "1"}, {"2" -> "2"}, and so on
-for (int i = 1; i < 100; i++) {
-  producer.send(new ProducerRecord<String, String>(topic, Integer.toString(i), Integer.toString(i)));
-}
-
-producer.close();
+TURTLE TUBE uses a simplified [Kafka API](https://kafka.apache.org/documentation/#producerapi) implementation and omits the use of the Properties object and simply pass the relevant information into the Producer constructor. It also omits the use of generic types and assume that the send method accepts a byte[] of data. TURTLE TUBE's Producer API is as follows:
 
 ```
-The simplified API implementation omits the use of the Properties object and simply pass the relevant information into the Producer constructor. It also omits the use of generic types and assume that the send method accepts a byte[] of data. An example of a suggested simplified API is as follows:
+// Open a connection to the Load Balancer by creating a new Producer object
+Producer producer = new Producer(loadBalancerLocation, producerId);
 
-```
-// Open a connection to the Broker by creating a new Producer object
-String brokerLocation = "localhost:9092";
-Producer producer = new Producer(brokerLocation);
+producer.connectToLoadBalancer();
+producer.getLeaderAddress();
 
-// Set the data and topic
-byte[] data = ...;
-String topic = "my-topic";
+// Connect to the leader broker
+producer.connectToBroker();
+
+StreamProcessor streamProcessor = new StreamProcessor(producerConfig.getFilename());
+ArrayList<LogStream> streamsList = streamProcessor.processStream();
 
 // Send data
-producer.send(topic, data);
-// Leave connection open until all data sent
+for (LogStream stream : streamsList) {
+	producer.send(stream.getTopic(), stream.getData());
+}
 
 // Close the connection 
 producer.close();
 
 ```
 
-
-
-
-
 #### Consumer
 
-The `Consumer` API that may be used by an application running on any host that consumes messages from a broker. At minimum, the `Consumer` will allow the application to do the following:
+The `Consumer` API that may be used by an application running on any host that consumes messages from a broker. The `Consumer` will allow the application to do the following:
 
-1. Connect to a `Broker`
-2. Retrieve data from the `Broker` using a pull-based approach by specifying a topic of interest and a starting position in the message stream
+1. Connect to a `Load Balancer` and request the leader or follower `Broker` address
+2. Connect to a `Broker`
+3. Retrieve data from the `Broker` using a pull-based or push-based approach by specifying a topic of interest and a starting offset in the message stream
 
-Following is an example of how the Kafka API supports this functionality. In this example, the subscribe method is how the consumer specifies one or more topics of interest and the auto.offset.reset property is how the consumer specifies to start at the beginning of the message stream.
-```
-// Create a properties object that specifies where to find the broker
-// and how to serialize the data
-Properties props = new Properties();
-props.setProperty("bootstrap.servers", "localhost:9092");
-props.setProperty("group.id", "test");
-props.setProperty("enable.auto.commit", "false");
-props.setProperty("auto.offset.reset", "earliest");
-props.setProperty("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-props.setProperty("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-
-String topic = "my-topic";
-
-// Create a consumer using the properties specified
-KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
-
-// Subscribe the consumer to a list of topics
-consumer.subscribe(Arrays.asList(topic));
-
-// Forever...poll the next set of records from the consumer stream
-while (true) {
-	ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-	for (ConsumerRecord<String, String> record : records)
-		System.out.printf("offset = %d, key = %s, value = %s%n", record.offset(), record.key(), record.value());
-   }
-}
-```
-
-Kafka uses the log offset rather than a message ID to identify a position in the message stream. In your solution, you may simplify this assumption and give each message a monotonically increasing integer ID. Below is the simplified API for Consumer"
+Below is the simplified API for Consumer:
 ```
 // Specify the location of the broker, topic of interest for this specific
-// consumer object, and a starting position in the message stream.
-String brokerLocation = "localhost:9092";
-String topic = "my-topic";
-int startingPosition = 20;
+// consumer object, and a starting offset position in the message stream.
 
 // Connect to the consumer
-Consumer consumer = new Consumer(brokerLocation, topic, startingPosition);
+Consumer consumer = new Consumer(loadBalancerLocation, topic, startingPosition, push/pull, leader/follower, consumerId);
 
 // Continue to pull messages...forever
 while(true) {
@@ -234,16 +183,19 @@ while(true) {
 consumer.close();
 ```
 
-In a real application, your  `Consumer` would do something with the data consumed. For demonstration purposes the consumer will just save it to a file. 
-
-The final demonstration must include at least three `Consumer`applications running on three separate hosts. The choice of topic(s) should fully demonstrate the features of the application.
+In a real world application, the `Consumer` would do something with the data consumed. For demonstration purposes the consumer will just save it to a log file. 
 
 
 #### Broker
 
-The `Broker` will accept an unlimited number of connection requests from producers and consumers. The basic `Broker` implementation* will maintain a thread-safe, in-memory data structure that stores all messages. The basic `Broker` will be stateless with respect to the `Consumer` hosts.
+The `Broker` will accept an unlimited number of connection requests from producers and consumers. 
 
-The assignment description specifies the application API that you must implement. It is up to you to design the communication protocol between the components of the system. An API-level method call will be translated into a message that will be sent over a connection between `Broker` and either `Producer` or `Consumer`. 
+
+
+
+
+The basic `Broker` implementation* will maintain a thread-safe, in-memory data structure that stores all messages. The basic `Broker` will be stateless with respect to the `Consumer` hosts.
+ 
 
 1. **May 9** - **Persist Log to Disk and Use Byte Offsets as Message ID** Basic implementation
 2. **May 12** - **Push-based Subscriber** Design and implement a mechanism for a Consumer to register to receive updates to a topic. The Broker will proactively push out new messages to any registered consumers.
