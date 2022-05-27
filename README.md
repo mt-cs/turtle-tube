@@ -9,10 +9,10 @@ A reliable stream processing communication engine to enable ingesting and proces
 
 
 ## Table of contents[![](https://user-images.githubusercontent.com/60201466/166403770-b5813248-17d5-4b23-acfe-cf60936d539f.svg)](#table-of-contents)
-1. [Description](https://github.com/mt-cs/turtle-tube/edit/main/README.md#description-)
-2. [Architecture](https://github.com/mt-cs/turtle-tube/edit/main/README.md#architecture-)
-3. [Run Configurations](https://github.com/mt-cs/turtle-tube/edit/main/README.md#run-configurations-)
-4. [Features](https://github.com/mt-cs/turtle-tube/edit/main/README.md#features-)
+1. [Description](https://github.com/mt-cs/turtle-tube#description)
+2. [Architecture](https://github.com/mt-cs/turtle-tube#architecture-)
+3. [Features](https://github.com/mt-cs/turtle-tube/blob/main/README.md#features)
+4. [Run Configurations](https://github.com/mt-cs/turtle-tube/edit/main/README.md#run-configurations-)
 5. [Design Principles](https://github.com/mt-cs/turtle-tube/edit/main/README.md#design-principles-)
    - [Messaging Framework with Fault Injection](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-messaging-framework-with-fault-injection)
    - [Reliable Data Transfer](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-reliable-data-transfer)
