@@ -61,9 +61,9 @@ _Here are the TURTLE TUBE additional features:_
 | Features | Description |
 | --- | --- |
 |**Persist Log to Disk and Use Byte Offsets as Message IDs**| Flush the segment files to disk only after a configurable number of messages have been published.|
-|**Push-based Subscriber**| a Consumer to be push-based and the Broker be stateful. |
+|**Push-based Subscriber**| A Consumer to be push-based and the Broker be stateful. |
 |**Replication factor**| The leader will replicate the topic to *rf* followers rather than all followers. |
-|**Pull-based reads from followers**| A Consumer may connect to a follower to subscribe to a topic.|
+|**Reads from followers**| A Consumer may connect to a follower to subscribe to a topic.|
 
 ---
 
@@ -106,10 +106,10 @@ TURTLE TUBE messaging framework provides the ability to send and receive message
 #### Fault Injector
 
 There are two implementations of the Sender's and Receiver's fault injector:
-* Default Implementation: Send and receive as expected, failing only if the underlying network connection actually fails.
-* Lossy Implementation: Allow the developer to inject interfaces failure. Specify a **loss rate** and a **delay parameter** for both sender and receiver.
-  - Loss rate: specified as a decimal from 0 to 1, will define the probability that a message is lost in the network. A loss rate of .1 would indicate that an average of 10% of messages will be lost.
-  - Delay parameter: specified as an integer delay, will define the maximum delay of a message in milliseconds. Assume actual delay is uniformly distributed from 0 to delay.
+* **Default Implementation**: Send and receive as expected, failing only if the underlying network connection actually fails.
+* **Lossy Implementation**: Allow the developer to inject interfaces failure. Specify a **loss rate** and a **delay parameter** for both sender and receiver.
+  - **Loss rate**: specified as a decimal from 0 to 1, will define the probability that a message is lost in the network. A loss rate of .1 would indicate that an average of 10% of messages will be lost.
+  - **Delay parameter**: specified as an integer delay, will define the maximum delay of a message in milliseconds. Assume actual delay is uniformly distributed from 0 to delay.
 
 #### Communication
 
@@ -165,7 +165,7 @@ The `Consumer` API that may be used by an application running on any host that c
 2. Connect to a `Broker`
 3. Retrieve data from the `Broker` using a pull-based or push-based approach by specifying a topic of interest and a starting offset in the message stream
 
-Below is the simplified API for Consumer:
+Below is the simplified API for the Pull-Based Consumer:
 ```
 // Specify the location of the broker, topic of interest for this specific
 // consumer object, and a starting offset position in the message stream.
@@ -191,17 +191,53 @@ In a real world application, the `Consumer` would do something with the data con
 The `Broker` will accept an unlimited number of connection requests from producers and consumers. 
 
 
+### 🐢 Fault Tolerant
+
+The goal of this project is to provide `Broker` fault tolerance by replicating all data stored by the `Broker` onto *n* other instances of the `Broker` running on different hosts. With *n+1* `Broker` instances, your solution must be able to tolerate the failure of up to *n*. As long as one `Broker` is available, all `Producer` and `Consumer` requests must succeed.
+
+### 🐢 Strong Consistency
+
+A `Consumer` must receive all messages in order. It is possible that a `Broker` receives a message from a `Producer` and fails before it is replicated to ***any of*** the followers. The ***only*** time your system will have data loss is in this scenario. If *even one* follower receives a message before the leader fails that must be provided to the `Consumer`.
 
 
+### 🐢 Membership and Failure Detection
 
-The basic `Broker` implementation* will maintain a thread-safe, in-memory data structure that stores all messages. The basic `Broker` will be stateless with respect to the `Consumer` hosts.
- 
+The `Broker` will maintain a membership list that will be dynamically updated as hosts fail or come online. 
 
-1. **May 9** - **Persist Log to Disk and Use Byte Offsets as Message ID** Basic implementation
-2. **May 12** - **Push-based Subscriber** Design and implement a mechanism for a Consumer to register to receive updates to a topic. The Broker will proactively push out new messages to any registered consumers.
-3. **May 15** - **Replication with persistent storage and push-based** Update persistent storage implementation to handle replication with snapshot using multiple files for each topic. Update push-based subscriber to handle node failure during replication.
-4. **May 16** - **Pull-based reads from followers** A Consumer may connect to a follower to subscribe to a topic. If that follower fails, the Consumer will reconnect to active followers and specify its start point in the message stream
-5. **May 17** - **Replication factor** Allow the creator of a topic to specify a replication factor (*rf*) for that topic. When a follower fails all topics it is storing must be redistributed to one or more other followers to ensure the rf is maintained
+**Dynamic Join:** Dynamically add new instances of the Broker during program execution. The membership table should only contain the live members at any given time. A new Broker may be configured with the IP/port of one existing Broker. It is possible that not all `Broker` instances will be online when a specific `Broker` starts up. TURTLE TUBE handle this case by retrying the connection until the `Broker` is available. TURTLE TUBE assumes that the first `Broker` that comes online is the leader.
+
+**Heartbeat:** All`Broker` instances will send regular heartbeat messages to all other `Broker` instances in their membership tables. If a `Broker` *b1* does not hear from another `Broker` *b2* for some configurable delay period it will suspect it has failed. If *b2* is a follower it can be removed from the membership table. If *b2* is the leader, *b1* will begin an election.
+
+### 🐢 Replication
+
+**Synchronous Replication:** When the leader receives a new message from a `Producer` it will ***synchronously*** replicate the message to all followers in the membership table. The `Producer` request will not complete until all followers have the new data. 
+
+**Join Procedure:** When a new follower joins it will retrieve a snapshot of the database from the leader or another follower. This makes sure that the new follower receives all future updates and does not miss any writes.
+
+### 🐢 Election
+
+**Bully election:** TURTLE TUBE implements the Bully distributed election algorithm to replace a crash-stop failure of the leader. It is possible that multiple `Broker` instances discover the failed leader simultaneously and simultaneously start the election. The Bully algorithm handles this case.
+
+**Consistency:** If the leader was in the process of a write operation when it failed it is possible that some followers have the data and some do not. Once the new leader is elected, TURTLE TUBE ensures that the most recent data is replicated to all followers.
+
+**Producer/Consumer Notification:** The Bully algorithm requires the the new leader send a *victory* message to the followers. In addition, the load balancer will notify all `Producer` and `Consumer` instances of the new leader.
+
+### 🐢 Asynchronous Followers
+Allow followers to be asynchronous. Some followers may be configured as asynchronous.Producer might receive confirmation that a send has completed before the follower receives the update. 
+
+### 🐢 Persist Log to Disk and Use Byte Offsets as Message ID
+TURTLE TUBE saves the log to permanent storage and using byte offsets rather than integer message IDs for identifying the appropriate consumer read location. The implementation derived from the following design described in the original [Kafka paper](http://notes.stephenholiday.com/Kafka.pdf): *“For better performance, we flush the segment files to disk only after a configurable number of messages have been published or a certain amount of time has elapsed. A message is only exposed to the consumers after it is flushed.”*
+
+![kafka](https://kafka.apache.org/32/images/kafka_log.png)
+
+### 🐢 Push-based/ Pull-based Subscriber
+TURTLE TUBE implement both pull-based and push-based mechanisms. In the pull-based approach, the `Broker` will be stateless with respect to the `Consumer` hosts. Push-based is a mechanism for a Consumer to register to receive updates to a topic. The Broker is stateful and will proactively push out new messages to any registered consumers.
+
+### 🐢 Reads from followers
+A Consumer may connect to a follower to subscribe to a topic. If that follower fails, the Consumer will reconnect to active followers and specify its start point in the message stream
+
+### 🐢 Replication factor
+TURTLE TUBE allows the creator of a topic to specify a replication factor (*rf*) for that topic. When a follower fails all topics it is storing must be redistributed to one or more other followers to ensure the rf is maintained
 
 ## Datasets [![](https://user-images.githubusercontent.com/60201466/166403770-b5813248-17d5-4b23-acfe-cf60936d539f.svg)](#datasets)
 
