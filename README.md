@@ -17,6 +17,16 @@ A reliable stream processing communication engine to enable ingesting and proces
    - [Messaging Framework with Fault Injection](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-messaging-framework-with-fault-injection)
    - [Reliable Data Transfer](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-reliable-data-transfer)
    - [Publish/Subscribe System](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-publishsubscribe-system)
+   - [Fault Tolerant](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-fault-tolerant)
+   - [Strong Consistency](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-strong-consistency)
+   - [Membership and Failure Detection](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-membership-and-failure-detection)
+   - [Replication](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-replication)
+   - [Election](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-election)
+   - [Asynchronous Followers](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-asynchronous-followers)
+   - [Persist Log to Disk and Use Byte Offsets as Message ID](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-persist-log-to-disk-and-use-byte-offsets-as-message-id)
+   - [Push-based/ Pull-based Subscriber](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-push-based-pull-based-subscriber)
+   - [Reads From Followers](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-reads-from-followers)
+   - [Replication Factor](https://github.com/mt-cs/turtle-tube/edit/main/README.md#-replication-factor)
 6. [Datasets](https://github.com/mt-cs/turtle-tube/edit/main/README.md#datasets-)
 
 ---
@@ -233,11 +243,13 @@ TURTLE TUBE saves the log to permanent storage and using byte offsets rather tha
 ### 🐢 Push-based/ Pull-based Subscriber
 TURTLE TUBE implement both pull-based and push-based mechanisms. In the pull-based approach, the `Broker` will be stateless with respect to the `Consumer` hosts. Push-based is a mechanism for a Consumer to register to receive updates to a topic. The Broker is stateful and will proactively push out new messages to any registered consumers.
 
-### 🐢 Reads from followers
+### 🐢 Reads From Followers
 A Consumer may connect to a follower to subscribe to a topic. If that follower fails, the Consumer will reconnect to active followers and specify its start point in the message stream
 
-### 🐢 Replication factor
+### 🐢 Replication Factor
 TURTLE TUBE allows the creator of a topic to specify a replication factor (*rf*) for that topic. When a follower fails all topics it is storing must be redistributed to one or more other followers to ensure the rf is maintained
+
+---
 
 ## Datasets [![](https://user-images.githubusercontent.com/60201466/166403770-b5813248-17d5-4b23-acfe-cf60936d539f.svg)](#datasets)
 
